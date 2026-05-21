@@ -18,12 +18,21 @@ jobs:
       GHCR_IMAGE: ghcr.io/ehwiya/pro-presenter-back-end
     if: github.event_name == 'workflow_dispatch' || (github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push')
     steps:
-      - uses: appleboy/ssh-action@v1.2.0
+      # Hosted runner → Tailscale 100.x SSH (docs/GHA-DEPLOY-B2.md, Secret: TS_AUTH_KEY)
+      - name: Tailscale
+        uses: tailscale/github-action@v4
+        with:
+          authkey: ${{ secrets.TS_AUTH_KEY }}
+          ping: ${{ secrets.NAS_HOST }}
+          version: latest
+      - name: SSH deploy.sh
+        uses: appleboy/ssh-action@v1.2.0
         with:
           host: ${{ secrets.NAS_HOST }}
           username: ${{ secrets.NAS_USER }}
           key: ${{ secrets.NAS_SSH_KEY }}
           port: ${{ secrets.NAS_SSH_PORT || 22 }}
+          timeout: 60s
           script_stop: true
           command_timeout: 10m
           script: |
