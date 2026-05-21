@@ -30,11 +30,13 @@ pro-presenter-back-end/
 
 ## 빠른 시작 (NAS / Linux)
 
-```bash
-cd api
-# api/.env · live/.env (git 제외) — 변수 표: docs/ENV.md
+호스트 **8003** = 컨테이너 **8000** (`live/docker-compose.yml` 매핑). 상세: `docs/ENV.md`
 
-docker compose build && docker compose up -d
+```bash
+cd /home/iwh/pro-presenter/live   # NAS
+# live/.env · data/bible-krv.json — docs/ENV.md
+
+./bin/deploy.sh ghcr.io/ehwiya/pro-presenter-back-end:main
 
 curl -s http://127.0.0.1:8003/health
 curl -s http://127.0.0.1:8003/venues
@@ -152,6 +154,10 @@ uvicorn app.main:app --reload --port 8003
 ```
 
 검증: `.\.cursor\scripts\verify-utf8.ps1` (또는 `chcp` → 65001 · `python -c "print('한글 테스트')"`)
+
+**GHA (push 후):** `.\.cursor\scripts\gha_watch.ps1` — CI/Deploy NAS 성공·실패·backend/server 분류 (`.cursor/rules/gha-post-push-watch.mdc`)
+
+**GHA Secrets (로컬):** 루트 `.env.gha` (git 제외) — 값 입력 후 GitHub Actions Secrets에 **동일 이름**으로 등록
 
 ## NAS 배치 (이미지 pull — git clone 불필요)
 

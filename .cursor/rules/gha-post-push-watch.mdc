@@ -1,0 +1,53 @@
+---
+description: main push 후 GHA 추적·성공/실패 보고·로그 분석·backend/server 분류
+alwaysApply: true
+---
+
+# GHA push 후 추적 (에이전트)
+
+`origin/main`에 **push한 뒤** (또는 사용자가 배포/CI 결과를 물을 때) 아래를 **자동 수행**한다. 사용자에게 "확인해 보세요"만 하고 끝내지 않는다.
+
+## 1. 추적 실행
+
+```powershell
+.\.cursor\scripts\gha_watch.ps1
+```
+
+- 기본: `HEAD` SHA 기준 최대 10분 폴링
+- 즉시 스냅샷만: `.\.cursor\scripts\gha_watch.ps1 -NoWait`
+- 특정 SHA: `-Sha f235d3e`
+
+## 2. 사용자 보고 형식
+
+1. **요약 한 줄**: CI / Deploy NAS 각각 success | failure | skipped
+2. **링크**: 각 run `html_url`
+3. **실패 시**: `backend` | `server` | `both` | `unknown` + 근거 1~2문장
+4. **Action plan**: 번호 목록 (아래 분류표)
+
+## 3. 분류 (책임)
+
+| bucket | GHA 신호 | 대표 원인 |
+|--------|----------|-----------|
+| **backend** | `CI` → job `test` 또는 `publish` 실패 | pytest, Dockerfile, GHCR 권한, `api/` 코드 |
+| **server** | `Deploy NAS` 실패 또는 SSH/deploy.sh 오류 | Secrets, NAS SSH, `live/bin/deploy.sh`, compose, `.env` |
+| **both** | CI 성공 후 NAS/PP E2E만 실패, 또는 API·현장 양쪽 설정 불일치 | API + `live/` + PP 동시 점검 |
+| **unknown** | 워크플로 미실행·API 403(로그 없음) | 토큰·권한·SHA 미반영 |
+
+- `Deploy NAS` **skipped** + `CI` **failure** → **backend** (배포는 안 돈 것이 정상)
+- `CI` **success** + `Deploy NAS` **failure** → **server**
+
+## 4. 실패 로그
+
+1. `GITHUB_TOKEN` 또는 `GH_TOKEN` 있으면 스크립트가 job log tail 수집
+2. 없으면: run/job URL + 로컬 `dev-test.ps1` / `docs/github-actions.md`로 재현
+3. 토큰은 **커밋 금지**. 로컬 `$env:GITHUB_TOKEN` 또는 Cursor secrets
+
+## 5. 수정 우선순위
+
+1. **backend** 먼저 (CI 녹색) → 2. **server** (Deploy NAS) → 3. **both**면 경계 재현 후 문서(`docs/ENV.md`, `REPLY-TO-SERVER.md`) 갱신
+
+## 6. push 직후 체크리스트 (에이전트)
+
+- [ ] `git push` 완료 SHA 기록
+- [ ] `gha_watch.ps1` 실행·결과 보고
+- [ ] failure → bucket + action plan 제시, 필요 시 코드/문서 수정 제안
