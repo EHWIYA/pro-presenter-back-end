@@ -1,5 +1,56 @@
 # 서버팀 회신 메일 (복사용)
 
+## 최신 회신 (A 완료 + B-2 Tailscale)
+
+**제목:** Re: NAS 배포 확인 — 포트 정리·bible-krv·GHA Tailscale Secrets
+
+---
+
+안녕하세요,
+
+수동 배포·`8003→8000` compose·`/venues` 확인 감사합니다.
+
+### 포트 (8000 vs 8003) — 불일치 아님
+
+| | 포트 |
+|--|------|
+| GHCR 이미지·컨테이너 **내부** | **8000** |
+| NAS 호스트에서 curl / health | **8003** (`127.0.0.1:8003:8000` 매핑) |
+
+레포 `live/docker-compose.yml`·`deploy.sh` health check는 **8003** 기준이 맞습니다.
+
+### `/health` — bible-krv.json
+
+`/venues` OK, `/health`는 **`live/data/bible-krv.json` 전체 66권** 필요합니다.
+
+```bash
+cd /home/iwh/pro-presenter/live
+./bin/fetch-bible-krv.sh
+./bin/deploy.sh ghcr.io/ehwiya/pro-presenter-back-end:main
+curl -s http://127.0.0.1:8003/health
+```
+
+### GHA 자동 배포 — B-2 Tailscale (Secrets는 서버/Tailscale 측)
+
+Hosted runner가 `100.x`에 SSH 불가하여, Deploy 워크플로에 **Tailscale ephemeral** 단계를 넣었습니다.  
+NAS에는 runner 없이 기존 `deploy.sh`만 유지합니다.
+
+**GitHub repo Secrets** (상세: `docs/GHA-DEPLOY-B2.md`, 로컬: `.env.gha`):
+
+| Secret |
+|--------|
+| `TS_AUTH_KEY` |
+
+Tailscale: reusable auth key (`tskey-auth-...`). ACL에서 CI → NAS(:22).
+
+등록 후 Actions **Deploy NAS** → Run workflow 로 1회 검증 부탁드립니다.
+
+감사합니다.
+
+---
+
+## 이전 초안 (참고)
+
 **제목:** Re: [공조] ProPresenter 백엔드 — 레포 push·GHCR·NAS 반영 요청
 
 ---

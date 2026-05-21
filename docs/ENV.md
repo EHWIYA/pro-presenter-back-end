@@ -23,4 +23,11 @@
 | `VENUES_JSON_PATH` | `/live/venues.json` |
 | `BIBLE_JSON_PATH` | `/app/data/bible-krv.json` |
 
+## NAS 포트
+
+- 컨테이너 API: **8000** (이미지 기본)
+- 호스트 접속: **8003** (`live/docker-compose.yml` → `127.0.0.1:8003:8000`)
+- `/health`·`/venues`: `http://127.0.0.1:8003/...`
+- `/health` 정상: `live/data/bible-krv.json` 실데이터 (`./bin/fetch-bible-krv.sh`)
+
 서버 메일 별칭: `PP_PRESENTATION_UUID` → `PP_PRESENTATION_ID`, `PP_DOCUMENT_UUID` → `PP_LIBRARY_ID`, `PP_ACTION_UUID` → `PP_THEME_SLIDE_ID`
