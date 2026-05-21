@@ -1,0 +1,28 @@
+{
+  "files.encoding": "utf8",
+  "files.autoGuessEncoding": false,
+  "terminal.integrated.defaultProfile.windows": "PowerShell (UTF-8)",
+  "terminal.integrated.automationProfile.windows": {
+    "path": "C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe",
+    "args": [
+      "-NoLogo",
+      "-ExecutionPolicy",
+      "Bypass",
+      "-NoExit",
+      "-Command",
+      ". \"${env:USERPROFILE}\\.cursor\\ensure-utf8.ps1\""
+    ]
+  },
+  "terminal.integrated.profiles.windows": {
+    "PowerShell (UTF-8)": {
+      "path": "C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe",
+      "args": [
+        "-NoExit",
+        "-ExecutionPolicy",
+        "Bypass",
+        "-File",
+        "${env:USERPROFILE}\\.cursor\\terminal-utf8-init.ps1"
+      ]
+    }
+  }
+}
