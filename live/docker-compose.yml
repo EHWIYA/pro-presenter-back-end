@@ -1,0 +1,15 @@
+# NAS 운영용 — 이미지 pull 만 (빌드 없음). GHA가 GHCR에 push 한 뒤 사용.
+# 사전 준비: 이 폴더에 .env, venues.json, data/bible-krv.json
+
+services:
+  pro-presenter-api:
+    image: ${PP_API_IMAGE:?PP_API_IMAGE is required}
+    container_name: pro-presenter-api
+    ports:
+      - "127.0.0.1:8003:8000"
+    env_file:
+      - .env
+    volumes:
+      - ./venues.json:/live/venues.json:ro
+      - ./data/bible-krv.json:/app/data/bible-krv.json:ro
+    restart: unless-stopped
