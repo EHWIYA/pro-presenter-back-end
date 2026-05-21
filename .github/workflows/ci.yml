@@ -23,9 +23,12 @@ jobs:
           python-version: "3.12"
           cache: pip
           cache-dependency-path: api/requirements-dev.txt
-      - run: pip install -r requirements-dev.txt && pytest -q
+      - run: pip install -r requirements-dev.txt
+      - run: python -m pytest --tb=short
         env:
           PYTHONUTF8: "1"
+          VENUES_JSON_PATH: ${{ github.workspace }}/live/venues.json
+          BIBLE_JSON_PATH: ${{ github.workspace }}/api/data/bible-krv.sample.json
 
   publish:
     needs: test

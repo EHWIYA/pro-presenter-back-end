@@ -1,12 +1,6 @@
-import os
-from pathlib import Path
-
 from fastapi.testclient import TestClient
 
-os.environ.setdefault("VENUES_JSON_PATH", str(Path(__file__).resolve().parents[2] / "live" / "venues.json"))
-os.environ.setdefault("BIBLE_JSON_PATH", str(Path(__file__).resolve().parents[1] / "data" / "bible-krv.sample.json"))
-
-from app.main import app  # noqa: E402
+from app.main import app
 
 
 def test_health():
