@@ -14,6 +14,8 @@ on:
 jobs:
   deploy:
     runs-on: ubuntu-latest
+    env:
+      GHCR_IMAGE: ghcr.io/ehwiya/pro-presenter-back-end
     if: github.event_name == 'workflow_dispatch' || (github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push')
     steps:
       - uses: appleboy/ssh-action@v1.2.0
@@ -26,4 +28,4 @@ jobs:
           command_timeout: 10m
           script: |
             ${{ secrets.NAS_DEPLOY_PATH || '/home/iwh/pro-presenter/live' }}/bin/deploy.sh \
-              ghcr.io/${{ github.repository }}:${{ github.event_name == 'workflow_dispatch' && github.event.inputs.image_tag || 'main' }}
+              ${{ env.GHCR_IMAGE }}:${{ github.event_name == 'workflow_dispatch' && github.event.inputs.image_tag || 'main' }}
