@@ -1,0 +1,12 @@
+# 로컬 개발용 (소스 build). NAS 운영은 ../live/docker-compose.yml + GHCR pull.
+services:
+  pro-presenter-api:
+    container_name: pro-presenter-api
+    build: .    ports:
+      - "127.0.0.1:8003:8000"
+    env_file:
+      - .env
+    volumes:
+      - ../live/venues.json:/live/venues.json:ro
+      - ./data/bible-krv.sample.json:/app/data/bible-krv.json:ro
+    restart: unless-stopped
