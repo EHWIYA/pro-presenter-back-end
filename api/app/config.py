@@ -38,6 +38,15 @@ class Settings(BaseSettings):
     pp_http_timeout_sec: float = Field(default=8.0, validation_alias="PP_HTTP_TIMEOUT_SEC")
     pp_send_method: str = Field(default="theme", validation_alias="PP_SEND_METHOD")
 
+    agent_port: int = Field(default=8787, validation_alias="AGENT_PORT")
+    agent_http_timeout_sec: float = Field(default=30.0, validation_alias="AGENT_HTTP_TIMEOUT_SEC")
+    agent_group_theme_key: str = Field(
+        default="reader-context",
+        validation_alias="AGENT_GROUP_THEME_KEY",
+    )
+    agent_build_mode: str = Field(default="append", validation_alias="AGENT_BUILD_MODE")
+    agent_auto_trigger: bool = Field(default=False, validation_alias="AGENT_AUTO_TRIGGER")
+
     pp_theme_id: str | None = Field(default=None, validation_alias="PP_THEME_ID")
     pp_theme_slide_id: str | None = Field(
         default=None,

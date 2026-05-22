@@ -13,6 +13,7 @@ from app.bible import BibleStore, list_books
 from app.config import Settings, get_settings, resolve_bible_path
 from app.verse_service import VerseServiceError, parse_verse, send_verse
 from app.venues import VenueError, VenueRegistry, probe_venue
+from app.worship import WorshipError, worship_build, worship_trigger
 
 API_VERSION = "1.0.0"
 
@@ -20,6 +21,14 @@ API_VERSION = "1.0.0"
 class VerseRequest(BaseModel):
     reference: str = Field(..., examples=["요 3:16"])
     venue_id: str | None = Field(default=None, examples=["main"])
+
+
+class WorshipBuildRequest(BaseModel):
+    text: str = Field(..., examples=["마 3:1-10\n마 3:2"])
+
+
+class WorshipTriggerRequest(BaseModel):
+    index: int = Field(..., examples=[33])
 
 
 def _require_api_key(
@@ -90,6 +99,38 @@ async def venue_probe(
     return await probe_venue(venue, settings.pp_http_timeout_sec)
 
 
+@app.post("/venues/{venue_id}/worship/build")
+async def venue_worship_build(
+    venue_id: str,
+    body: WorshipBuildRequest,
+    settings: Settings = Depends(get_settings),
+) -> dict[str, Any]:
+    try:
+        venue = _get_venues().get(venue_id)
+    except VenueError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    try:
+        return await worship_build(venue, settings, body.text)
+    except WorshipError as exc:
+        raise _http_from_worship(exc) from exc
+
+
+@app.post("/venues/{venue_id}/worship/trigger")
+async def venue_worship_trigger(
+    venue_id: str,
+    body: WorshipTriggerRequest,
+    settings: Settings = Depends(get_settings),
+) -> dict[str, Any]:
+    try:
+        venue = _get_venues().get(venue_id)
+    except VenueError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    try:
+        return await worship_trigger(venue, settings, body.index)
+    except WorshipError as exc:
+        raise _http_from_worship(exc) from exc
+
+
 @app.post("/api/v1/verse/parse", dependencies=[Depends(_require_api_key)])
 async def verse_parse(body: VerseRequest) -> dict[str, Any]:
     try:
@@ -123,6 +164,13 @@ def _get_venues() -> VenueRegistry:
 
 
 def _http_from_service(exc: VerseServiceError) -> HTTPException:
+    detail: dict[str, Any] = {"message": str(exc)}
+    if exc.hint:
+        detail["hint"] = exc.hint
+    return HTTPException(status_code=exc.status_code, detail=detail)
+
+
+def _http_from_worship(exc: WorshipError) -> HTTPException:
     detail: dict[str, Any] = {"message": str(exc)}
     if exc.hint:
         detail["hint"] = exc.hint

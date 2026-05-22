@@ -1,0 +1,139 @@
+"""NAS → 현장 ProPresenter Agent (build / trigger) 프록시."""
+
+from __future__ import annotations
+
+import json
+from typing import Any
+
+import httpx
+
+from app.config import Settings
+from app.venues import Venue
+
+
+class WorshipError(Exception):
+    def __init__(
+        self,
+        message: str,
+        *,
+        status_code: int = 502,
+        hint: str | None = None,
+    ) -> None:
+        super().__init__(message)
+        self.status_code = status_code
+        self.hint = hint
+
+
+def text_to_reference(text: str) -> str:
+    """PWA `text` → 에이전트 `reference` (첫 비어 있지 않은 줄)."""
+    for line in text.splitlines():
+        stripped = line.strip()
+        if stripped:
+            return stripped
+    stripped = text.strip()
+    if not stripped:
+        raise WorshipError("text가 비어 있습니다.", status_code=400)
+    return stripped
+
+
+def agent_port_for(venue: Venue, settings: Settings) -> int:
+    if venue.agent_port is not None:
+        return venue.agent_port
+    return settings.agent_port
+
+
+def agent_base_url(venue: Venue, settings: Settings) -> str:
+    port = agent_port_for(venue, settings)
+    return f"http://{venue.tailscale_ip}:{port}"
+
+
+def build_agent_body(reference: str, settings: Settings) -> dict[str, Any]:
+    return {
+        "reference": reference,
+        "group_theme_key": settings.agent_group_theme_key,
+        "build_mode": settings.agent_build_mode,
+        "auto_trigger": settings.agent_auto_trigger,
+    }
+
+
+async def _agent_post(
+    venue: Venue,
+    settings: Settings,
+    path: str,
+    *,
+    json_body: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    base = agent_base_url(venue, settings).rstrip("/")
+    url = f"{base}{path}"
+    timeout = settings.agent_http_timeout_sec
+    try:
+        async with httpx.AsyncClient(timeout=timeout) as client:
+            response = await client.post(url, json=json_body)
+    except httpx.ConnectError as exc:
+        raise WorshipError(
+            "현장 에이전트에 연결할 수 없습니다.",
+            hint=(
+                "Tailscale offline, 에이전트 미기동, 또는 방화벽이 "
+                f"포트 {agent_port_for(venue, settings)} 을 막고 있을 수 있습니다."
+            ),
+        ) from exc
+    except httpx.TimeoutException as exc:
+        raise WorshipError(
+            "에이전트 응답 시간이 초과되었습니다.",
+            hint=f"agent_port={agent_port_for(venue, settings)} 및 현장 PC 상태를 확인하세요.",
+        ) from exc
+    except httpx.HTTPError as exc:
+        raise WorshipError(f"에이전트 HTTP 통신 오류: {exc}") from exc
+
+    if response.status_code >= 400:
+        detail = _response_detail(response)
+        raise WorshipError(
+            detail,
+            status_code=response.status_code,
+            hint=f"agent URL: {url}",
+        )
+
+    if not response.content:
+        return {"ok": True}
+    try:
+        data = response.json()
+    except json.JSONDecodeError:
+        return {"ok": True, "raw": response.text}
+    if isinstance(data, dict):
+        return data
+    return {"ok": True, "data": data}
+
+
+def _response_detail(response: httpx.Response) -> str:
+    try:
+        body = response.json()
+    except json.JSONDecodeError:
+        return response.text or f"HTTP {response.status_code}"
+    if isinstance(body, dict):
+        if isinstance(body.get("detail"), str):
+            return body["detail"]
+        if isinstance(body.get("message"), str):
+            return body["message"]
+        return json.dumps(body, ensure_ascii=False)
+    return str(body)
+
+
+async def worship_build(
+    venue: Venue,
+    settings: Settings,
+    text: str,
+) -> dict[str, Any]:
+    reference = text_to_reference(text)
+    body = build_agent_body(reference, settings)
+    result = await _agent_post(venue, settings, "/build", json_body=body)
+    if "reference" not in result:
+        result = {**result, "reference": reference}
+    return result
+
+
+async def worship_trigger(
+    venue: Venue,
+    settings: Settings,
+    index: int,
+) -> dict[str, Any]:
+    return await _agent_post(venue, settings, f"/trigger?index={index}")
