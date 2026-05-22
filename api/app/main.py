@@ -12,6 +12,7 @@ from pydantic import BaseModel, Field
 from app.bible import BibleStore, list_books
 from app.config import Settings, get_settings, resolve_bible_path
 from app.verse_service import VerseServiceError, parse_verse, send_verse
+from app.presentations import PresentationsError, list_venue_presentations
 from app.venues import VenueError, VenueRegistry, probe_venue
 from app.worship import WorshipError, worship_build, worship_trigger
 
@@ -99,6 +100,21 @@ async def venue_probe(
     return await probe_venue(venue, settings.pp_http_timeout_sec)
 
 
+@app.get("/venues/{venue_id}/presentations")
+async def venue_presentations(
+    venue_id: str,
+    settings: Settings = Depends(get_settings),
+) -> dict[str, Any]:
+    try:
+        venue = _get_venues().get(venue_id)
+    except VenueError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    try:
+        return await list_venue_presentations(venue, settings)
+    except PresentationsError as exc:
+        raise _http_from_presentations(exc) from exc
+
+
 @app.post("/venues/{venue_id}/worship/build")
 async def venue_worship_build(
     venue_id: str,
@@ -171,6 +187,13 @@ def _http_from_service(exc: VerseServiceError) -> HTTPException:
 
 
 def _http_from_worship(exc: WorshipError) -> HTTPException:
+    detail: dict[str, Any] = {"message": str(exc)}
+    if exc.hint:
+        detail["hint"] = exc.hint
+    return HTTPException(status_code=exc.status_code, detail=detail)
+
+
+def _http_from_presentations(exc: PresentationsError) -> HTTPException:
     detail: dict[str, Any] = {"message": str(exc)}
     if exc.hint:
         detail["hint"] = exc.hint

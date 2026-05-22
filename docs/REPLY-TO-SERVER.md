@@ -1,5 +1,41 @@
 # 서버팀 회신 메일 (복사용)
 
+## PWA 홈 presentations API 회신 (발송용)
+
+**제목:** Re: [프론트→백엔드] PWA 홈·프레젠테이션 목록 API 공조 요청
+
+---
+
+안녕하세요,
+
+요청하신 **`GET /venues/{venue_id}/presentations`** 를 `main`에 반영했습니다. 배포 후 아래로 확인 가능합니다.
+
+```bash
+curl -s https://pro-api.iwhya.kr/venues/test/presentations
+```
+
+### 협의 답변
+
+| 항목 | 내용 |
+|------|------|
+| 경로 | `GET /venues/{venue_id}/presentations` |
+| 인증 | worship·probe와 동일 (`X-API-Key` 없음) |
+| `presentations[].id` | PP 라이브러리 항목 **UUID** (기존 `PP_PRESENTATION_ID` / trigger와 동일) |
+| 그룹 매핑 | PP REST `groups[].name` → `label`, `slides` 길이 → `slide_count` (구 API `groupName`/`groupSlides` 폴백) |
+| 빈 목록 | **200** + `presentations: []` |
+| 소스 범위 | `venues.json`에 `pp_library_id` 있으면 해당 라이브러리만, 없으면 `/v1/libraries` 전체 |
+| 스펙 | [`docs/api-presentations.md`](api-presentations.md) |
+
+### 배포
+
+`main` push → CI 성공 후 Deploy NAS → PWA 재빌드 없이 홈 연동 가능합니다.
+
+404·필드 불일치 시 `venue_id`와 응답 JSON 샘플 알려주시면 맞추겠습니다.
+
+감사합니다.
+
+---
+
 ## PWA worship 프록시 회신 (발송용)
 
 **제목:** Re: [공조] Pro Presenter — PWA worship 프록시·API Key
