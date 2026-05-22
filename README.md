@@ -51,8 +51,10 @@ curl -s http://127.0.0.1:8003/venues/main/probe
 | GET | `/api/v1/books` | 지원 성경 66권 목록 |
 | GET | `/venues` | 현장 목록 |
 | GET | `/venues/{id}/probe` | NAS → PP 연결 테스트 |
-| POST | `/api/v1/verse/parse` | 참조 파싱 + 2줄 분할 |
-| POST | `/api/v1/verse/send` | 파싱 후 PP 송출 (`venue_id` 필수) |
+| POST | `/venues/{id}/worship/build` | PWA → 에이전트 빌드 프록시 (`text` → `reference`) |
+| POST | `/venues/{id}/worship/trigger` | PWA → 에이전트 슬라이드 송출 (`index`) |
+| POST | `/api/v1/verse/parse` | 참조 파싱 + 2줄 분할 (레거시) |
+| POST | `/api/v1/verse/send` | 파싱 후 PP 송출 (레거시, `venue_id` 필수) |
 
 ### 요청 예시
 

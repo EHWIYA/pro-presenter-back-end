@@ -1,5 +1,81 @@
 # 서버팀 회신 메일 (복사용)
 
+## PWA worship 프록시 회신 (발송용)
+
+**제목:** Re: [공조] Pro Presenter — PWA worship 프록시·API Key
+
+---
+
+안녕하세요,
+
+P0 요청 반영해 `main` push 예정입니다. 배포 run URL은 push 후 공유드리겠습니다.
+
+### 체크리스트
+
+| 항목 | 상태 |
+|------|------|
+| `POST /venues/{id}/worship/build` · `.../trigger` | **구현 완료** (배포 대기) |
+| text vs reference | **pro-api에서 변환** — PWA는 `text`만 전송, NAS→에이전트는 첫 비어 있지 않은 줄을 `reference`로 `POST /build` body에 매핑 |
+| 에이전트 포트 | 기본 **8787** (`AGENT_PORT` / `venues.json` `agent_port`). PP API는 기존 `pp_port`·probe와 동일 |
+| API_KEY / `X-API-Key` | **미적용** (P1). worship·probe·venues는 키 없이 동작, 레거시 `verse/*`만 `API_KEY` 설정 시 요구 |
+
+### NAS 재확인 (Deploy NAS 성공 후)
+
+```bash
+curl -s http://127.0.0.1:8003/health
+curl -s -X POST http://127.0.0.1:8003/venues/test/worship/build \
+  -H 'Content-Type: application/json' -d '{"text":"마 3:1"}'
+curl -s -X POST http://127.0.0.1:8003/venues/test/worship/trigger \
+  -H 'Content-Type: application/json' -d '{"index":1}'
+```
+
+(현장 에이전트·PP가 켜져 있어야 build/trigger가 200입니다.)
+
+감사합니다.
+
+---
+
+## GHA Deploy NAS 성공 회신 (발송용)
+
+**제목:** Re: [서버/NAS] pro-presenter — GHA CI·Deploy NAS 자동 배포 성공
+
+---
+
+안녕하세요,
+
+회신 주신 Auth key(`TS_AUTH_KEY`)·NAS SSH Secrets 반영 후 `main` push 기준 **GitHub Actions 전 구간 성공** 확인했습니다. 공유 감사합니다.
+
+### GHA 결과 (`a20b136`)
+
+| 워크플로 | 결과 | 링크 |
+|----------|------|------|
+| **CI** (test + GHCR publish) | success | https://github.com/EHWIYA/pro-presenter-back-end/actions/runs/26201824724 |
+| **Deploy NAS** (Tailscale → SSH → `deploy.sh`) | success | https://github.com/EHWIYA/pro-presenter-back-end/actions/runs/26201851416 |
+
+- 이미지: `ghcr.io/ehwiya/pro-presenter-back-end:main`
+- Deploy: `live/bin/deploy.sh` (B-2 Auth key + 기존 SSH)
+- 레포: `deploy-nas.yml` Auth key 방식 반영 완료 (`docs/GHA-DEPLOY-B2.md`)
+
+### NAS 측 확인 요청 (선택)
+
+자동 배포 직후 아래 한 번만 확인해 주시면 이후 개발팀 E2E(`verse/parse`, `verse/send`) 진행하겠습니다.
+
+```bash
+curl -s http://127.0.0.1:8003/health
+curl -s http://127.0.0.1:8003/venues
+```
+
+### 이후 협의 (기존 미완료)
+
+- `live/.env` PP_THEME_ID·PP_* UUID — 송출 테스트 시 값 공유
+- 현장 `venues.json` / ProPresenter probe
+
+추가 이슈 있으면 Deploy NAS run URL·NAS 로그 알려 주세요.
+
+감사합니다.
+
+---
+
 ## 최신 회신 (A 완료 + B-2 Tailscale)
 
 **제목:** Re: NAS 배포 확인 — 포트 정리·bible-krv·GHA Tailscale Secrets

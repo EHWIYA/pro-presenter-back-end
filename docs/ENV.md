@@ -13,6 +13,11 @@
 | `PP_THEME_SLIDE_ID` | Two Lines 슬라이드 UUID |
 | `PP_LIBRARY_ID` | Default Library UUID |
 | `PP_PRESENTATION_ID` | test 프레젠테이션 UUID |
+| `AGENT_PORT` | 현장 에이전트 포트 (기본 **8787**, `venues.json` `agent_port`로 venue별 override) |
+| `AGENT_HTTP_TIMEOUT_SEC` | build/trigger 프록시 타임아웃 (기본 30) |
+| `AGENT_GROUP_THEME_KEY` | 에이전트 build `group_theme_key` (기본 `reader-context`) |
+| `AGENT_BUILD_MODE` | `append` (기본) |
+| `AGENT_AUTO_TRIGGER` | `false` (기본) |
 
 ## live/.env (NAS)
 
