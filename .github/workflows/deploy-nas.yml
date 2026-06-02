@@ -33,19 +33,17 @@ jobs:
           key: ${{ secrets.NAS_SSH_KEY }}
           port: ${{ secrets.NAS_SSH_PORT || 22 }}
           timeout: 60s
-          script_stop: true
+          script_stop: false
           command_timeout: 10m
           script: |
             DEPLOY_ROOT="${{ secrets.NAS_DEPLOY_PATH || '/home/iwh/pro-presenter/api' }}"
             IMAGE="${{ env.GHCR_IMAGE }}:${{ github.event_name == 'workflow_dispatch' && github.event.inputs.image_tag || 'main' }}"
-            if [ -f "${DEPLOY_ROOT}/bin/deploy.sh" ]; then
-              echo "using deploy script: ${DEPLOY_ROOT}/bin/deploy.sh"
-              bash "${DEPLOY_ROOT}/bin/deploy.sh" "${IMAGE}"
-            elif [ -f "${DEPLOY_ROOT}/ops/bin/deploy.sh" ]; then
-              # 이전 구조(ops)와의 임시 호환
-              echo "using deploy script: ${DEPLOY_ROOT}/ops/bin/deploy.sh"
-              bash "${DEPLOY_ROOT}/ops/bin/deploy.sh" "${IMAGE}"
-            else
+            SCRIPT_PATH=""
+            if [ -f "${DEPLOY_ROOT}/bin/deploy.sh" ]; then SCRIPT_PATH="${DEPLOY_ROOT}/bin/deploy.sh"; fi
+            if [ -z "${SCRIPT_PATH}" ] && [ -f "${DEPLOY_ROOT}/ops/bin/deploy.sh" ]; then SCRIPT_PATH="${DEPLOY_ROOT}/ops/bin/deploy.sh"; fi
+            if [ -z "${SCRIPT_PATH}" ]; then
               echo "deploy.sh not found under ${DEPLOY_ROOT}/bin or ${DEPLOY_ROOT}/ops/bin" >&2
               exit 1
             fi
+            echo "using deploy script: ${SCRIPT_PATH}"
+            bash "${SCRIPT_PATH}" "${IMAGE}"
