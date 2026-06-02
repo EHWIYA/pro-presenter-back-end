@@ -36,5 +36,13 @@ jobs:
           script_stop: true
           command_timeout: 10m
           script: |
-            ${{ secrets.NAS_DEPLOY_PATH || '/home/iwh/pro-presenter/api' }}/ops/bin/deploy.sh \
-              ${{ env.GHCR_IMAGE }}:${{ github.event_name == 'workflow_dispatch' && github.event.inputs.image_tag || 'main' }}
+            DEPLOY_ROOT="${{ secrets.NAS_DEPLOY_PATH || '/home/iwh/pro-presenter/api' }}"
+            IMAGE="${{ env.GHCR_IMAGE }}:${{ github.event_name == 'workflow_dispatch' && github.event.inputs.image_tag || 'main' }}"
+            if [ -x "${DEPLOY_ROOT}/ops/bin/deploy.sh" ]; then
+              "${DEPLOY_ROOT}/ops/bin/deploy.sh" "${IMAGE}"
+            elif [ -x "${DEPLOY_ROOT}/bin/deploy.sh" ]; then
+              "${DEPLOY_ROOT}/bin/deploy.sh" "${IMAGE}"
+            else
+              echo "deploy.sh not found under ${DEPLOY_ROOT} (checked ops/bin and bin)" >&2
+              exit 1
+            fi
