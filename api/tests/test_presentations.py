@@ -4,6 +4,7 @@ from fastapi.testclient import TestClient
 
 from app.main import app
 from app.presentations import (
+    _current_preview_summary,
     _parse_groups,
     _parse_library_ids,
     _presentation_summary,
@@ -40,6 +41,24 @@ def test_parse_groups_legacy_pp():
     assert _parse_groups(root) == [{"label": "봉헌", "slide_count": 2}]
 
 
+def test_current_preview_summary():
+    body = {
+        "presentation": {
+            "id": {"uuid": "pres-current-1"},
+            "name": "주일예배",
+            "currentSlideIndex": 4,
+            "currentSlideText": "말씀 봉독",
+        }
+    }
+    out = _current_preview_summary("main", body)
+    assert out["venue_id"] == "main"
+    assert out["presentation_id"] == "pres-current-1"
+    assert out["label"] == "주일예배"
+    assert out["current_slide_index"] == 4
+    assert out["preview_text"] == "말씀 봉독"
+    assert "updated_at" in out
+
+
 @patch("app.main.list_venue_presentations", new_callable=AsyncMock)
 def test_presentations_endpoint(mock_list):
     mock_list.return_value = {
@@ -67,3 +86,21 @@ def test_presentations_unknown_venue():
     with TestClient(app) as client:
         r = client.get("/venues/unknown/presentations")
     assert r.status_code == 404
+
+
+@patch("app.main.get_current_presentation_preview", new_callable=AsyncMock)
+def test_current_presentation_endpoint(mock_current):
+    mock_current.return_value = {
+        "venue_id": "main",
+        "presentation_id": "pres-current-1",
+        "label": "주일예배",
+        "current_slide_index": 2,
+        "preview_text": "광고",
+        "updated_at": "2026-01-01T00:00:00+00:00",
+    }
+    with TestClient(app) as client:
+        r = client.get("/venues/main/presentation/current")
+    assert r.status_code == 200
+    data = r.json()
+    assert data["presentation_id"] == "pres-current-1"
+    assert data["current_slide_index"] == 2

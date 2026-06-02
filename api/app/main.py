@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 from contextlib import asynccontextmanager
 from typing import Any
 
@@ -14,7 +15,11 @@ from app.config import Settings, get_settings, resolve_bible_path
 from app.database import dispose_db, ensure_schema, init_db, is_db_configured
 from app.songs_api import router as songs_router
 from app.verse_service import VerseServiceError, parse_verse, send_verse
-from app.presentations import PresentationsError, list_venue_presentations
+from app.presentations import (
+    PresentationsError,
+    get_current_presentation_preview,
+    list_venue_presentations,
+)
 from app.venues import VenueError, VenueRegistry, probe_venue
 from app.worship import WorshipError, worship_build, worship_trigger
 
@@ -110,6 +115,17 @@ async def venue_probe(
     return await probe_venue(venue, settings.pp_http_timeout_sec)
 
 
+@app.get("/venues/status")
+async def venues_status(
+    settings: Settings = Depends(get_settings),
+) -> dict[str, Any]:
+    venues = [v for v in _get_venues().all() if v.enabled]
+    probes = await asyncio.gather(
+        *(probe_venue(venue, settings.pp_http_timeout_sec) for venue in venues)
+    )
+    return {"venues": probes}
+
+
 @app.get("/venues/{venue_id}/presentations")
 async def venue_presentations(
     venue_id: str,
@@ -121,6 +137,21 @@ async def venue_presentations(
         raise HTTPException(status_code=404, detail=str(exc)) from exc
     try:
         return await list_venue_presentations(venue, settings)
+    except PresentationsError as exc:
+        raise _http_from_presentations(exc) from exc
+
+
+@app.get("/venues/{venue_id}/presentation/current")
+async def venue_current_presentation(
+    venue_id: str,
+    settings: Settings = Depends(get_settings),
+) -> dict[str, Any]:
+    try:
+        venue = _get_venues().get(venue_id)
+    except VenueError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    try:
+        return await get_current_presentation_preview(venue, settings)
     except PresentationsError as exc:
         raise _http_from_presentations(exc) from exc
 

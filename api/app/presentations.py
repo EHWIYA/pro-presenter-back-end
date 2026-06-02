@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+from datetime import UTC, datetime
 from typing import Any
 
 from app.config import Settings
@@ -21,6 +22,18 @@ class PresentationsError(Exception):
         super().__init__(message)
         self.status_code = status_code
         self.hint = hint
+
+
+async def get_current_presentation_preview(
+    venue: Venue,
+    settings: Settings,
+) -> dict[str, Any]:
+    client = ProPresenterClient(venue, settings.pp_http_timeout_sec)
+    try:
+        body = await client.get_json("/v1/presentation/current")
+    except ProPresenterError as exc:
+        raise _wrap_pp_error(exc, "presentation/current") from exc
+    return _current_preview_summary(venue.id, body)
 
 
 async def list_venue_presentations(
@@ -167,6 +180,74 @@ def _parse_groups(root: dict[str, Any]) -> list[dict[str, Any]]:
         count = len(slides) if isinstance(slides, list) else 0
         groups.append({"label": str(label), "slide_count": count})
     return groups
+
+
+def _current_preview_summary(venue_id: str, body: Any) -> dict[str, Any]:
+    root = body if isinstance(body, dict) else {}
+    nested = root.get("presentation")
+    if isinstance(nested, dict):
+        root = {**nested, **{k: v for k, v in root.items() if k not in nested}}
+
+    presentation_id = _extract_uuid(root)
+    label = (
+        root.get("name")
+        or root.get("presentationName")
+        or root.get("presentation_name")
+        or ""
+    )
+    current_slide_index = _coerce_index(
+        root.get("currentSlideIndex")
+        or root.get("slideIndex")
+        or root.get("activeSlideIndex")
+        or root.get("active_index")
+    )
+    preview_text = _extract_preview_text(root)
+
+    return {
+        "venue_id": venue_id,
+        "presentation_id": presentation_id,
+        "label": str(label),
+        "current_slide_index": current_slide_index,
+        "preview_text": preview_text,
+        "updated_at": datetime.now(UTC).isoformat(),
+    }
+
+
+def _coerce_index(value: Any) -> int | None:
+    if isinstance(value, bool):
+        return None
+    if isinstance(value, int):
+        return value
+    if isinstance(value, float):
+        return int(value)
+    if isinstance(value, str):
+        stripped = value.strip()
+        if stripped.isdigit():
+            return int(stripped)
+    return None
+
+
+def _extract_preview_text(root: dict[str, Any]) -> str:
+    candidates: list[str] = []
+    for key in ("currentSlideText", "previewText", "text", "label"):
+        value = root.get(key)
+        if isinstance(value, str) and value.strip():
+            candidates.append(value.strip())
+
+    slides = root.get("slides")
+    if isinstance(slides, list):
+        for slide in slides:
+            if not isinstance(slide, dict):
+                continue
+            for key in ("text", "label", "title"):
+                value = slide.get(key)
+                if isinstance(value, str) and value.strip():
+                    candidates.append(value.strip())
+                    break
+
+    if candidates:
+        return candidates[0]
+    return ""
 
 
 def _extract_uuid(value: Any) -> str | None:

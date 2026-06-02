@@ -1,4 +1,5 @@
 from fastapi.testclient import TestClient
+from unittest.mock import AsyncMock, patch
 
 from app.main import app
 
@@ -39,3 +40,31 @@ def test_venues_list():
         r = client.get("/venues")
         assert r.status_code == 200
         assert any(v["id"] == "main" for v in r.json()["venues"])
+
+
+@patch("app.main.probe_venue", new_callable=AsyncMock)
+def test_venues_status(mock_probe):
+    mock_probe.side_effect = [
+        {
+            "venue_id": "main",
+            "name": "Main Hall",
+            "connected": True,
+            "status_code": "ok",
+            "message": "연결됨",
+            "checked_at": "2026-01-01T00:00:00+00:00",
+        },
+        {
+            "venue_id": "sub",
+            "name": "Sub Hall",
+            "connected": False,
+            "status_code": "timeout",
+            "message": "요청 시간 초과 - 방화벽 또는 ProPresenter API 미응답",
+            "checked_at": "2026-01-01T00:00:00+00:00",
+        },
+    ]
+    with TestClient(app) as client:
+        r = client.get("/venues/status")
+    assert r.status_code == 200
+    data = r.json()
+    assert len(data["venues"]) >= 1
+    assert "connected" in data["venues"][0]

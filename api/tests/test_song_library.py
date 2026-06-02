@@ -1,4 +1,4 @@
-"""Phase 2 곡 라이브러리 CRUD · analyze 재사용 · build-song songId."""
+"""곡 라이브러리 CRUD · analyze 재사용 · build-song songId."""
 
 from __future__ import annotations
 

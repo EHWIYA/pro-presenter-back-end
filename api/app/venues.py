@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 from dataclasses import dataclass
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -117,43 +118,59 @@ async def probe_venue(
     timeout: float,
 ) -> dict[str, Any]:
     url = f"{venue.base_url}/v1/presentation/current"
+    checked_at = datetime.now(UTC).isoformat()
     try:
         async with httpx.AsyncClient(timeout=timeout) as client:
             response = await client.get(url)
     except httpx.ConnectError:
         return {
-            "ok": False,
+            "connected": False,
             "venue_id": venue.id,
+            "name": venue.name,
             "url": url,
-            "hint": "Tailscale 연결 불가 또는 ProPresenter가 꺼져 있음 (ConnectError)",
+            "status_code": "connect_error",
+            "message": "Tailscale 연결 불가 또는 ProPresenter가 꺼져 있습니다.",
+            "checked_at": checked_at,
         }
     except httpx.TimeoutException:
         return {
-            "ok": False,
+            "connected": False,
             "venue_id": venue.id,
+            "name": venue.name,
             "url": url,
-            "hint": "요청 시간 초과 — 방화벽 또는 PP API 미응답",
+            "status_code": "timeout",
+            "message": "요청 시간 초과 - 방화벽 또는 ProPresenter API 미응답",
+            "checked_at": checked_at,
         }
     except httpx.HTTPError as exc:
         return {
-            "ok": False,
+            "connected": False,
             "venue_id": venue.id,
+            "name": venue.name,
             "url": url,
-            "hint": f"HTTP 오류: {exc}",
+            "status_code": "http_error",
+            "message": f"HTTP 통신 오류: {exc}",
+            "checked_at": checked_at,
         }
 
-    ok = response.status_code == 200
-    hint = None
-    if not ok:
+    connected = response.status_code == 200
+    message = "연결됨"
+    status_code = "ok"
+    if not connected:
         if response.status_code in (502, 503, 504):
-            hint = "ProPresenter API가 일시적으로 응답하지 않음"
+            status_code = "gateway_error"
+            message = "ProPresenter API가 일시적으로 응답하지 않습니다."
         else:
-            hint = f"HTTP {response.status_code} — 포트({venue.pp_port}) 또는 API 경로 확인"
+            status_code = "http_status_error"
+            message = f"HTTP {response.status_code} - 포트({venue.pp_port}) 또는 API 경로를 확인하세요."
 
     return {
-        "ok": ok,
+        "connected": connected,
         "venue_id": venue.id,
+        "name": venue.name,
         "url": url,
-        "status_code": response.status_code,
-        "hint": hint,
+        "status_code": status_code,
+        "http_status": response.status_code,
+        "message": message,
+        "checked_at": checked_at,
     }
