@@ -36,7 +36,10 @@ jobs:
           script_stop: false
           command_timeout: 10m
           script: |
-            DEPLOY_ROOT="${{ secrets.NAS_DEPLOY_PATH || '/home/iwh/pro-presenter/api' }}"
+            DEPLOY_ROOT="${{ secrets.NAS_DEPLOY_PATH || '' }}"
+            if [ -z "${DEPLOY_ROOT}" ] || [[ "${DEPLOY_ROOT}" == *"*"* ]]; then
+              DEPLOY_ROOT="/home/iwh/pro-presenter/api"
+            fi
             IMAGE="${{ env.GHCR_IMAGE }}:${{ github.event_name == 'workflow_dispatch' && github.event.inputs.image_tag || 'main' }}"
             pwd
             ls -la "${DEPLOY_ROOT}" || true
