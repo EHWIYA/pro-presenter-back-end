@@ -3,7 +3,10 @@
 from __future__ import annotations
 
 import asyncio
+import logging
+import time
 from contextlib import asynccontextmanager
+from datetime import UTC, datetime
 from typing import Any
 
 from fastapi import Depends, FastAPI, Header, HTTPException
@@ -20,10 +23,11 @@ from app.presentations import (
     get_current_presentation_preview,
     list_venue_presentations,
 )
-from app.venues import VenueError, VenueRegistry, probe_venue
+from app.venues import Venue, VenueError, VenueRegistry, probe_venue
 from app.worship import WorshipError, worship_build, worship_trigger
 
 API_VERSION = "1.1.0"
+logger = logging.getLogger(__name__)
 
 
 class VerseRequest(BaseModel):
@@ -121,7 +125,7 @@ async def venues_status(
 ) -> dict[str, Any]:
     venues = [v for v in _get_venues().all() if v.enabled]
     probes = await asyncio.gather(
-        *(probe_venue(venue, settings.pp_http_timeout_sec) for venue in venues)
+        *(_probe_venue_safe(venue, settings.pp_http_timeout_sec) for venue in venues)
     )
     return {"venues": probes}
 
@@ -239,3 +243,35 @@ def _http_from_presentations(exc: PresentationsError) -> HTTPException:
     if exc.hint:
         detail["hint"] = exc.hint
     return HTTPException(status_code=exc.status_code, detail=detail)
+
+
+async def _probe_venue_safe(venue: Venue, timeout_sec: float) -> dict[str, Any]:
+    started = time.monotonic()
+    try:
+        result = await probe_venue(venue, timeout_sec)
+    except Exception:
+        elapsed_ms = int((time.monotonic() - started) * 1000)
+        logger.exception(
+            "venues/status probe failed venue_id=%s elapsed_ms=%s",
+            venue.id,
+            elapsed_ms,
+        )
+        return {
+            "connected": False,
+            "venue_id": venue.id,
+            "name": venue.name,
+            "status_code": "internal_error",
+            "message": "상태 점검 중 내부 오류가 발생했습니다.",
+            "checked_at": datetime.now(UTC).isoformat(),
+        }
+
+    elapsed_ms = int((time.monotonic() - started) * 1000)
+    logger.info(
+        "venues/status probe venue_id=%s connected=%s status_code=%s elapsed_ms=%s",
+        result.get("venue_id", venue.id),
+        result.get("connected"),
+        result.get("status_code"),
+        elapsed_ms,
+    )
+    result["elapsed_ms"] = elapsed_ms
+    return result

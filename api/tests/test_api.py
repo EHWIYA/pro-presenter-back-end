@@ -68,3 +68,15 @@ def test_venues_status(mock_probe):
     data = r.json()
     assert len(data["venues"]) >= 1
     assert "connected" in data["venues"][0]
+    assert "elapsed_ms" in data["venues"][0]
+
+
+@patch("app.main.probe_venue", new_callable=AsyncMock)
+def test_venues_status_partial_success_on_probe_exception(mock_probe):
+    mock_probe.side_effect = RuntimeError("unexpected probe error")
+    with TestClient(app) as client:
+        r = client.get("/venues/status")
+    assert r.status_code == 200
+    data = r.json()["venues"]
+    assert len(data) >= 1
+    assert any(v["status_code"] == "internal_error" for v in data)
