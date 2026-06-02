@@ -1,4 +1,4 @@
-# NAS <repo>/ops/bin/deploy.sh 실행만 (pull·compose·health는 NAS에서 처리)
+# NAS <repo>/bin/deploy.sh 실행만 (pull·compose·health는 NAS에서 처리)
 name: Deploy NAS
 
 on:
@@ -38,22 +38,14 @@ jobs:
           script: |
             DEPLOY_ROOT="${{ secrets.NAS_DEPLOY_PATH || '/home/iwh/pro-presenter/api' }}"
             IMAGE="${{ env.GHCR_IMAGE }}:${{ github.event_name == 'workflow_dispatch' && github.event.inputs.image_tag || 'main' }}"
-            if [ -x "${DEPLOY_ROOT}/ops/bin/deploy.sh" ]; then
-              echo "using deploy script: ${DEPLOY_ROOT}/ops/bin/deploy.sh"
-              "${DEPLOY_ROOT}/ops/bin/deploy.sh" "${IMAGE}"
-            elif [ -x "${DEPLOY_ROOT}/bin/deploy.sh" ]; then
+            if [ -f "${DEPLOY_ROOT}/bin/deploy.sh" ]; then
               echo "using deploy script: ${DEPLOY_ROOT}/bin/deploy.sh"
-              "${DEPLOY_ROOT}/bin/deploy.sh" "${IMAGE}"
-            elif [ -x "/home/iwh/pro-presenter/api/ops/bin/deploy.sh" ]; then
-              echo "using deploy script: /home/iwh/pro-presenter/api/ops/bin/deploy.sh"
-              "/home/iwh/pro-presenter/api/ops/bin/deploy.sh" "${IMAGE}"
-            elif [ -x "/home/iwh/pro-presenter/live/bin/deploy.sh" ]; then
-              echo "using deploy script: /home/iwh/pro-presenter/live/bin/deploy.sh"
-              "/home/iwh/pro-presenter/live/bin/deploy.sh" "${IMAGE}"
-            elif [ -x "/home/iwh/pro-presenter/pro-presenter-back-end/ops/bin/deploy.sh" ]; then
-              echo "using deploy script: /home/iwh/pro-presenter/pro-presenter-back-end/ops/bin/deploy.sh"
-              "/home/iwh/pro-presenter/pro-presenter-back-end/ops/bin/deploy.sh" "${IMAGE}"
+              sh "${DEPLOY_ROOT}/bin/deploy.sh" "${IMAGE}"
+            elif [ -f "${DEPLOY_ROOT}/ops/bin/deploy.sh" ]; then
+              # 이전 구조(ops)와의 임시 호환
+              echo "using deploy script: ${DEPLOY_ROOT}/ops/bin/deploy.sh"
+              sh "${DEPLOY_ROOT}/ops/bin/deploy.sh" "${IMAGE}"
             else
-              echo "deploy.sh not found under known candidate paths" >&2
+              echo "deploy.sh not found under ${DEPLOY_ROOT}/bin or ${DEPLOY_ROOT}/ops/bin" >&2
               exit 1
             fi

@@ -43,17 +43,17 @@ $env:GITHUB_TOKEN = "ghp_..."   # repo Actions read 권한, 커밋 금지
 ## NAS 1회 준비
 
 ```bash
-# 개발 PC에서 (ops/bin·compose 전송)
+# 개발 PC에서 (api/bin·compose 전송)
 NAS_SSH=iwh@100.x.x.x NAS_DEPLOY_PATH=/home/iwh/pro-presenter/api \
   ./ops/bin/install-live-remote.sh
 
 # NAS에서
-cd /home/iwh/pro-presenter/api/ops
+cd /home/iwh/pro-presenter/api
 ./bin/setup-nas.sh
 # .env, venues.json, data/bible-krv.json 편집
 ```
 
-`ops/bin` 수정 후에는 `install-live-remote.sh` 만 다시 실행.
+`api/bin` 수정 후에는 `install-live-remote.sh` 만 다시 실행.
 
 ## NAS 일상 명령
 
@@ -76,7 +76,7 @@ cd /home/iwh/pro-presenter/api/ops
 
 설정 절차: **`docs/GHA-DEPLOY-B2.md`**
 
-Private GHCR: NAS `ops/.env` 에 `GHCR_USER`, `GHCR_TOKEN` (GHA Secret 불필요).
+Private GHCR: NAS `api/.env` 에 `GHCR_USER`, `GHCR_TOKEN` (GHA Secret 불필요).
 
 ## CI 파일
 

@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
-# 개발 PC → NAS 로 ops/ 운영 파일만 전송 (bin·compose 변경 시)
+# 개발 PC → NAS 로 api/ 운영 파일만 전송 (bin·compose 변경 시)
 # 사용: NAS_SSH=iwh@100.x.x.x NAS_DEPLOY_PATH=/home/iwh/pro-presenter/api ./bin/install-live-remote.sh
 set -euo pipefail
 
 REPO_OPS="$(cd "$(dirname "$0")/.." && pwd)"
 SSH_TARGET="${NAS_SSH:?NAS_SSH 필요 — 예: iwh@100.99.47.84}"
 DEPLOY_ROOT="${NAS_DEPLOY_PATH:-/home/iwh/pro-presenter/api}"
-REMOTE="${DEPLOY_ROOT}/ops"
+REMOTE="${DEPLOY_ROOT}"
 
 rsync -avz \
   "${REPO_OPS}/docker-compose.yml" \
