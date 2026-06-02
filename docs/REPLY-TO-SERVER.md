@@ -1,5 +1,45 @@
 # 서버팀 회신 메일 (복사용)
 
+## PWA 미니제어 API 계약 재확인 회신 (발송용)
+
+**제목:** Re: [재확인] Pro Presenter 모바일 PWA API 반영/배포 기준 SHA 공유
+
+---
+
+안녕하세요,
+
+재확인 요청 주신 항목 기준으로 백엔드 `main` 브랜치 최신 반영분을 공유드립니다.
+
+### 1) 배포 기준 브랜치 / 커밋 SHA
+
+- 브랜치: `main`
+- 기준 SHA: `7d8b52e` (`feat : PWA 미니제어 API 계약 확정`)
+
+### 2) 반영 API 계약 문서 / PR
+
+- 계약 반영 커밋: `7d8b52e`
+- 관련 문서: `README.md` API 표, `docs/api-presentations.md`
+
+### 3) 운영 기준 확인 가능 엔드포인트 (최종 스펙)
+
+- `GET /health`
+- `GET /api/v1/books`
+- `GET /venues`
+- `GET /venues/{venue_id}/probe`
+- `GET /venues/status`
+- `GET /venues/{venue_id}/presentations`
+- `GET /venues/{venue_id}/presentation/current`
+- `POST /venues/{venue_id}/worship/build`
+- `POST /venues/{venue_id}/worship/trigger`
+- `POST /api/v1/verse/parse` (레거시)
+- `POST /api/v1/verse/send` (레거시)
+
+요청 주신 `GET /venues/status`, `GET /venues/{venue_id}/presentation/current` 두 경로는 위 기준 SHA에 포함되어 있습니다.
+
+감사합니다.
+
+---
+
 ## PWA 홈 presentations API 회신 (발송용)
 
 **제목:** Re: [프론트→백엔드] PWA 홈·프레젠테이션 목록 API 공조 요청
