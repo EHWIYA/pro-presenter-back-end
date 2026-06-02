@@ -1,12 +1,12 @@
 # 환경 변수
 
-`.env` 는 git에 포함되지 않습니다. 새 환경은 아래 표를 보고 `api/.env`, `live/.env` 를 직접 만듭니다.
+`.env` 는 git에 포함되지 않습니다. 새 환경은 아래 표를 보고 `api/.env`, `ops/.env` 를 직접 만듭니다.
 
 ## api/.env (로컬 개발)
 
 | 변수 | 예시 |
 |------|------|
-| `VENUES_JSON_PATH` | `../live/venues.json` |
+| `VENUES_JSON_PATH` | `../ops/venues.json` |
 | `BIBLE_JSON_PATH` | `data/bible-krv.sample.json` |
 | `PP_SEND_METHOD` | `theme` \| `message` |
 | `PP_THEME_ID` | Black Box 테마 UUID |
@@ -25,7 +25,7 @@
 | `SONG_LIBRARY_AUTO_SAVE` | analyze job 완료 시 DB upsert (기본 `true`) |
 | `SONG_LIBRARY_DEFAULT_LIMIT` | 곡 검색 기본 limit (기본 20) |
 
-## live/.env (NAS)
+## ops/.env (NAS)
 
 | 변수 | 예시 |
 |------|------|
@@ -39,7 +39,7 @@
 | `SONG_LIBRARY_AUTO_SAVE` | `true` |
 | `SONG_LIBRARY_DEFAULT_LIMIT` | `20` |
 
-## live/.env.postgres (NAS, git 제외)
+## ops/.env.postgres (NAS, git 제외)
 
 | 변수 | 예시 |
 |------|------|
@@ -50,9 +50,9 @@
 ## NAS 포트
 
 - 컨테이너 API: **8000** (이미지 기본)
-- 호스트 접속: **8003** (`live/docker-compose.yml` → `127.0.0.1:8003:8000`)
+- 호스트 접속: **8003** (`ops/docker-compose.yml` → `127.0.0.1:8003:8000`)
 - Postgres: **5434** (`127.0.0.1:5434` → `pro-presenter-postgres:5432`)
 - `/health`·`/venues`: `http://127.0.0.1:8003/...`
-- `/health` 정상: `live/data/bible-krv.json` 실데이터 (`./bin/fetch-bible-krv.sh`)
+- `/health` 정상: `ops/data/bible-krv.json` 실데이터 (`./bin/fetch-bible-krv.sh`)
 
 서버 메일 별칭: `PP_PRESENTATION_UUID` → `PP_PRESENTATION_ID`, `PP_DOCUMENT_UUID` → `PP_LIBRARY_ID`, `PP_ACTION_UUID` → `PP_THEME_SLIDE_ID`

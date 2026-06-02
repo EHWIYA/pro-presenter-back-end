@@ -80,4 +80,4 @@ curl -s http://127.0.0.1:8003/venues/main/presentations
 | `id` 형식 | 라이브러리 항목 **`uuid`** (trigger의 `presentation_id`와 동일) |
 | group 매핑 | PP REST `groups[].name` + `slides` 길이. 구 REST/WS는 `presentationSlideGroups` / `groupName` / `groupSlides` 폴백 |
 | 빈 목록 | `200`, `presentations: []` |
-| CORS | `CORS_ORIGINS`에 `https://pro-app.iwhya.kr` 포함 (NAS `live/.env`) |
+| CORS | `CORS_ORIGINS`에 `https://pro-app.iwhya.kr` 포함 (NAS `ops/.env`) |

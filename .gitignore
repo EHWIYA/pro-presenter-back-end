@@ -3,7 +3,7 @@
 # 비밀
 .env
 .env.*
-live/.env
+ops/.env
 api/.env
 
 # 성경

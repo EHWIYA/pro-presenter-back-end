@@ -4,14 +4,14 @@
 
 GitHub **hosted runner**는 공인 인터넷에서만 동작합니다. `NAS_HOST`가 Tailscale `100.x` 이면 SSH가 `dial tcp … i/o timeout` 으로 실패합니다.
 
-**해결:** Deploy job에서 **ephemeral Tailscale** 로 tailnet에 잠깐 합류한 뒤, 기존처럼 SSH → `live/bin/deploy.sh` 한 줄만 실행합니다. NAS에는 runner를 두지 않습니다.
+**해결:** Deploy job에서 **ephemeral Tailscale** 로 tailnet에 잠깐 합류한 뒤, 기존처럼 SSH → `ops/bin/deploy.sh` 한 줄만 실행합니다. NAS에는 runner를 두지 않습니다.
 
 ## 포트 (불일치 아님)
 
 | 구분 | 포트 | 설명 |
 |------|------|------|
 | 컨테이너 / CI 이미지 | **8000** | `api/Dockerfile` `uvicorn --port 8000`, `EXPOSE 8000` |
-| NAS·로컬 호스트 | **8003** | `live/docker-compose.yml` `127.0.0.1:8003:8000` |
+| NAS·로컬 호스트 | **8003** | `ops/docker-compose.yml` `127.0.0.1:8003:8000` |
 
 NAS에서 `curl http://127.0.0.1:8003/health` 가 맞습니다. 이미지 내부만 8000입니다.
 
@@ -46,7 +46,7 @@ NAS에서 `curl http://127.0.0.1:8003/health` 가 맞습니다. 이미지 내부
 | `NAS_HOST` | 기존 | Tailscale IP (예: `100.88.40.125`) |
 | `NAS_USER` | 기존 | SSH 사용자 |
 | `NAS_SSH_KEY` | 기존 | deploy용 private key |
-| `NAS_DEPLOY_PATH` | 기존 | `/home/iwh/pro-presenter/live` |
+| `NAS_DEPLOY_PATH` | 기존 | `/home/iwh/pro-presenter/api` |
 | `NAS_SSH_PORT` | 선택 | 기본 22 |
 
 Secrets 등록 후 **Actions → Deploy NAS → Run workflow** 로 검증.
@@ -54,11 +54,11 @@ Secrets 등록 후 **Actions → Deploy NAS → Run workflow** 로 검증.
 ## NAS (가벼운 역할 유지)
 
 - GHA runner **설치하지 않음**
-- `live/bin/deploy.sh` + `docker compose` 만 유지
-- `/health` 정상: `live/data/bible-krv.json` 실데이터 필요
+- `ops/bin/deploy.sh` + `docker compose` 만 유지
+- `/health` 정상: `ops/data/bible-krv.json` 실데이터 필요
 
 ```bash
-cd /home/iwh/pro-presenter/live
+cd /home/iwh/pro-presenter/api/ops
 ./bin/fetch-bible-krv.sh
 ./bin/deploy.sh ghcr.io/ehwiya/pro-presenter-back-end:main
 curl -s http://127.0.0.1:8003/health | jq .

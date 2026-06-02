@@ -19,7 +19,7 @@ pro-presenter-back-end/
 │   │   └── bible-krv.json          # 전체 성경 (git 제외, NAS·로컬)
 │   ├── scripts/build_bible_json.py
 │   └── docker-compose.yml
-└── live/
+└── ops/
     ├── docker-compose.yml
     ├── venues.json
     └── bin/
@@ -30,11 +30,11 @@ pro-presenter-back-end/
 
 ## 빠른 시작 (NAS / Linux)
 
-호스트 **8003** = 컨테이너 **8000** (`live/docker-compose.yml` 매핑). 상세: `docs/ENV.md`
+호스트 **8003** = 컨테이너 **8000** (`ops/docker-compose.yml` 매핑). 상세: `docs/ENV.md`
 
 ```bash
-cd /home/iwh/pro-presenter/live   # NAS
-# live/.env · data/bible-krv.json — docs/ENV.md
+cd /home/iwh/pro-presenter/api/ops   # NAS
+# ops/.env · data/bible-krv.json — docs/ENV.md
 
 ./bin/deploy.sh ghcr.io/ehwiya/pro-presenter-back-end:main
 
@@ -86,11 +86,11 @@ curl -s -X POST http://127.0.0.1:8003/api/v1/verse/send \
 
 ## 환경 변수
 
-`api/.env`(로컬), `live/.env`(NAS) — 전체 표는 [`docs/ENV.md`](docs/ENV.md)
+`api/.env`(로컬), `ops/.env`(NAS) — 전체 표는 [`docs/ENV.md`](docs/ENV.md)
 
 | 변수 | 설명 |
 |------|------|
-| `VENUES_JSON_PATH` | `live/venues.json` 경로 |
+| `VENUES_JSON_PATH` | `ops/venues.json` 경로 |
 | `BIBLE_JSON_PATH` | 개역개정 JSON |
 | `PP_SEND_METHOD` | `theme` (기본) 또는 `message` |
 | `PP_THEME_ID` / `PP_THEME_SLIDE_ID` | 테마 슬라이드 PUT |
@@ -99,7 +99,7 @@ curl -s -X POST http://127.0.0.1:8003/api/v1/verse/send \
 | `API_KEY` | 설정 시 `X-API-Key` 헤더 필요 |
 | `CORS_ORIGINS` | PWA 도메인 (콤마 구분) |
 
-현장별 UUID는 `live/venues.json` 각 venue 객체에 넣을 수 있습니다 (`.env`보다 우선).
+현장별 UUID는 `ops/venues.json` 각 venue 객체에 넣을 수 있습니다 (`.env`보다 우선).
 
 ## 성경 JSON
 
@@ -153,7 +153,7 @@ python -m venv .venv
 . ..\.cursor\scripts\ensure-utf8.ps1
 pip install -r requirements-dev.txt
 
-$env:VENUES_JSON_PATH = "..\live\venues.json"
+$env:VENUES_JSON_PATH = "..\ops\venues.json"
 $env:BIBLE_JSON_PATH = "data\bible-krv.sample.json"
 uvicorn app.main:app --reload --port 8003
 ```
@@ -166,10 +166,10 @@ uvicorn app.main:app --reload --port 8003
 
 ## NAS 배치 (이미지 pull — git clone 불필요)
 
-GHA가 **GHCR**에 이미지를 올리면, NAS는 `live/` 설정만 두고 pull 합니다.
+GHA가 **GHCR**에 이미지를 올리면, NAS는 `ops/` 설정만 두고 pull 합니다.
 
 ```
-/home/iwh/pro-presenter/live/
+/home/iwh/pro-presenter/api/ops/
 ├── docker-compose.yml
 ├── .env              ← NAS 전용 (git 제외, docs/ENV.md)
 ├── venues.json
@@ -183,16 +183,16 @@ GHA가 **GHCR**에 이미지를 올리면, NAS는 `live/` 설정만 두고 pull 
 | 워크플로 | 역할 |
 |----------|------|
 | [`ci.yml`](.github/workflows/ci.yml) | PR: pytest / main: pytest + GHCR push |
-| [`deploy-nas.yml`](.github/workflows/deploy-nas.yml) | SSH → NAS [`live/bin/deploy.sh`](live/bin/deploy.sh) (pull·재시작은 NAS) |
+| [`deploy-nas.yml`](.github/workflows/deploy-nas.yml) | SSH → NAS [`ops/bin/deploy.sh`](ops/bin/deploy.sh) (pull·재시작은 NAS) |
 
-NAS 최초: [`live/bin/install-live-remote.sh`](live/bin/install-live-remote.sh) · 상세 [`docs/github-actions.md`](docs/github-actions.md)
+NAS 최초: [`ops/bin/install-live-remote.sh`](ops/bin/install-live-remote.sh) · 상세 [`docs/github-actions.md`](docs/github-actions.md)
 
 **서버 회신 후:** [`docs/PUSH-AND-HANDOFF.md`](docs/PUSH-AND-HANDOFF.md) · 서버 회신 메일 [`docs/REPLY-TO-SERVER.md`](docs/REPLY-TO-SERVER.md)
 
 ## 배포 전 체크 (운영 — 코드 밖)
 
-- [ ] `live/data/bible-krv.json` (전체 성경)
-- [ ] `live/.env` · `PP_THEME_ID` · GHCR `PP_API_IMAGE`
+- [ ] `ops/data/bible-krv.json` (전체 성경)
+- [ ] `ops/.env` · `PP_THEME_ID` · GHCR `PP_API_IMAGE`
 - [ ] GitHub Secrets → NAS SSH, (private) `GHCR_PULL_TOKEN`
 - [ ] `venues/main/probe` OK 후 `verse/send` 화면 확인
 

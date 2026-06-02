@@ -15,4 +15,4 @@ cd api
 python scripts/build_bible_json.py -i /path/to/ko_ko.json -o data/bible-krv.json
 ```
 
-NAS: `live/data/bible-krv.json` 에 복사 후 compose 볼륨 마운트.
+NAS: `ops/data/bible-krv.json` 에 복사 후 compose 볼륨 마운트.

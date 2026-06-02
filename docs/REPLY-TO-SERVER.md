@@ -40,6 +40,50 @@
 
 ---
 
+## 반영 경로 재지정 회신 (발송용)
+
+**제목:** Re: main@7d8b52e 반영 경로 재확인 요청
+
+---
+
+안녕하세요,
+
+문의 주신 `main@7d8b52e` 기준 반영 위치를 아래로 다시 지정드립니다.
+
+### 1) 반영 리포(원격)
+
+- GitHub: `https://github.com/EHWIYA/pro-presenter-back-end`
+- 브랜치: `main`
+- 기준 SHA: `7d8b52e680875b1daee3e142cfc535e4b40267e7`
+
+### 2) 코드 기준 파일 위치 (repo 내부)
+
+- `api/app/main.py`
+  - `GET /venues/status`
+  - `GET /venues/{venue_id}/presentation/current`
+- `api/app/presentations.py` (current preview 응답 스키마)
+- `README.md` (API 표)
+
+### 3) 서버/NAS에서 확인 시 경로 주의
+
+`/home/iwh/pro-presenter/api`는 배포 구조와 다를 수 있어, 아래처럼 **소스 레포가 있는 경로**에서 확인 부탁드립니다.
+
+```bash
+cd /home/iwh/pro-presenter/pro-presenter-back-end   # 소스 checkout 경로
+git fetch origin
+git checkout main
+git pull --ff-only
+git rev-parse --short HEAD
+grep -n "venues/status" api/app/main.py
+grep -n "presentation/current" api/app/main.py
+```
+
+> 위 기준으로도 미노출이면, 현재 서버에 checkout된 실제 경로(`pwd`)와 `git remote -v` 결과를 주시면 바로 맞춰드리겠습니다.
+
+감사합니다.
+
+---
+
 ## PWA 홈 presentations API 회신 (발송용)
 
 **제목:** Re: [프론트→백엔드] PWA 홈·프레젠테이션 목록 API 공조 요청
@@ -129,7 +173,7 @@ curl -s -X POST http://127.0.0.1:8003/venues/test/worship/trigger \
 | **Deploy NAS** (Tailscale → SSH → `deploy.sh`) | success | https://github.com/EHWIYA/pro-presenter-back-end/actions/runs/26201851416 |
 
 - 이미지: `ghcr.io/ehwiya/pro-presenter-back-end:main`
-- Deploy: `live/bin/deploy.sh` (B-2 Auth key + 기존 SSH)
+- Deploy: `ops/bin/deploy.sh` (B-2 Auth key + 기존 SSH)
 - 레포: `deploy-nas.yml` Auth key 방식 반영 완료 (`docs/GHA-DEPLOY-B2.md`)
 
 ### NAS 측 확인 요청 (선택)
@@ -143,7 +187,7 @@ curl -s http://127.0.0.1:8003/venues
 
 ### 이후 협의 (기존 미완료)
 
-- `live/.env` PP_THEME_ID·PP_* UUID — 송출 테스트 시 값 공유
+- `ops/.env` PP_THEME_ID·PP_* UUID — 송출 테스트 시 값 공유
 - 현장 `venues.json` / ProPresenter probe
 
 추가 이슈 있으면 Deploy NAS run URL·NAS 로그 알려 주세요.
@@ -169,14 +213,14 @@ curl -s http://127.0.0.1:8003/venues
 | GHCR 이미지·컨테이너 **내부** | **8000** |
 | NAS 호스트에서 curl / health | **8003** (`127.0.0.1:8003:8000` 매핑) |
 
-레포 `live/docker-compose.yml`·`deploy.sh` health check는 **8003** 기준이 맞습니다.
+레포 `ops/docker-compose.yml`·`deploy.sh` health check는 **8003** 기준이 맞습니다.
 
 ### `/health` — bible-krv.json
 
-`/venues` OK, `/health`는 **`live/data/bible-krv.json` 전체 66권** 필요합니다.
+`/venues` OK, `/health`는 **`ops/data/bible-krv.json` 전체 66권** 필요합니다.
 
 ```bash
-cd /home/iwh/pro-presenter/live
+cd /home/iwh/pro-presenter/api/ops
 ./bin/fetch-bible-krv.sh
 ./bin/deploy.sh ghcr.io/ehwiya/pro-presenter-back-end:main
 curl -s http://127.0.0.1:8003/health
@@ -219,7 +263,7 @@ ghcr.io/ehwiya/pro-presenter-back-end:main
 
 - GitHub: https://github.com/EHWIYA/pro-presenter-back-end  
 - `main` push 시 GHA가 이미지 push → **Deploy NAS** 워크플로가  
-  `/home/iwh/pro-presenter/live/bin/deploy.sh ghcr.io/ehwiya/pro-presenter-back-end:main` 실행합니다.
+  `/home/iwh/pro-presenter/api/ops/bin/deploy.sh ghcr.io/ehwiya/pro-presenter-back-end:main` 실행합니다.
 - 현재 로컬 alias 기동 중이시면, **첫 GHA Deploy 성공 후** 위 이미지로 전환해 주세요.
 
 ## 2. 성경 `data/bible-krv.json`
@@ -229,7 +273,7 @@ ghcr.io/ehwiya/pro-presenter-back-end:main
 **A) NAS에서 생성 (권장)**
 
 ```bash
-cd /home/iwh/pro-presenter/live
+cd /home/iwh/pro-presenter/api/ops
 # bin 최신화 후 (개발팀 install-live-remote.sh 전송)
 ./bin/fetch-bible-krv.sh
 docker compose restart   # 또는 deploy.sh 재실행
@@ -238,10 +282,10 @@ docker compose restart   # 또는 deploy.sh 재실행
 **B) 개발 PC에서 scp**
 
 ```bash
-scp api/data/bible-krv.json iwh@100.88.40.125:/home/iwh/pro-presenter/live/data/
+scp api/data/bible-krv.json iwh@100.88.40.125:/home/iwh/pro-presenter/api/ops/data/
 ```
 
-## 3. `live/.env` PP 설정 (변수명 매핑)
+## 3. `ops/.env` PP 설정 (변수명 매핑)
 
 서버 메일의 UUID 명칭과 백엔드 키 매핑입니다. **값은 PP Swagger에서 Black Box 테마 ID 포함 확인 부탁드립니다.**
 
@@ -257,7 +301,7 @@ scp api/data/bible-krv.json iwh@100.88.40.125:/home/iwh/pro-presenter/live/data/
 ## 4. GHCR private 여부
 
 - 저장소/패키지가 **public**이면 NAS `GHCR_TOKEN` 없이 pull 가능한 경우가 많습니다.
-- **private**이면 PAT(`read:packages`)를 `live/.env`에 `GHCR_USER` / `GHCR_TOKEN` 으로 넣어 주세요. 발급 경로 필요 시 공유하겠습니다.
+- **private**이면 PAT(`read:packages`)를 `ops/.env`에 `GHCR_USER` / `GHCR_TOKEN` 으로 넣어 주세요. 발급 경로 필요 시 공유하겠습니다.
 
 ## 5. GHA 배포 1회
 
