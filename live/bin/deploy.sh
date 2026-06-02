@@ -31,6 +31,11 @@ echo "deploy: pull ${IMAGE}"
 docker compose pull -q
 docker compose up -d --remove-orphans
 
+if docker compose ps --status running pro-presenter-api >/dev/null 2>&1; then
+  echo "deploy: alembic upgrade head"
+  docker compose exec -T pro-presenter-api alembic upgrade head || die "alembic migrate 실패"
+fi
+
 for i in 1 2 3; do
   if curl -sf http://127.0.0.1:8003/health >/dev/null; then
     echo "deploy: health OK"

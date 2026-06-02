@@ -1,11 +1,33 @@
 # 로컬 개발용 (소스 build). NAS 운영은 ../live/docker-compose.yml + GHCR pull.
 services:
+  pro-presenter-postgres:
+    image: postgres:17-alpine
+    container_name: pro-presenter-postgres-dev
+    environment:
+      POSTGRES_DB: pp_db
+      POSTGRES_USER: pp_user
+      POSTGRES_PASSWORD: pp_dev_password
+      TZ: Asia/Seoul
+    ports:
+      - "127.0.0.1:5434:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U pp_user -d pp_db"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
   pro-presenter-api:
     container_name: pro-presenter-api
-    build: .    ports:
+    build: .
+    depends_on:
+      pro-presenter-postgres:
+        condition: service_healthy
+    ports:
       - "127.0.0.1:8003:8000"
     env_file:
       - .env
+    environment:
+      DATABASE_URL: postgresql+asyncpg://pp_user:pp_dev_password@pro-presenter-postgres:5432/pp_db
     volumes:
       - ../live/venues.json:/live/venues.json:ro
       - ./data/bible-krv.sample.json:/app/data/bible-krv.json:ro

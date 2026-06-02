@@ -10,6 +10,8 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 COPY app ./app
 COPY data ./data
+COPY alembic.ini alembic.ini
+COPY alembic ./alembic
 ENV BIBLE_JSON_PATH=/app/data/bible-krv.sample.json
 
 EXPOSE 8000

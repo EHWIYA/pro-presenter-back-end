@@ -72,12 +72,21 @@ class Settings(BaseSettings):
     api_key: str | None = Field(default=None, validation_alias="API_KEY")
     send_log_path: Path | None = Field(default=None, validation_alias="SEND_LOG_PATH")
 
+    database_url: str | None = Field(default=None, validation_alias="DATABASE_URL")
+    song_library_auto_save: bool = Field(
+        default=True, validation_alias="SONG_LIBRARY_AUTO_SAVE"
+    )
+    song_library_default_limit: int = Field(
+        default=20, validation_alias="SONG_LIBRARY_DEFAULT_LIMIT"
+    )
+
     @field_validator(
         "api_key",
         "pp_theme_id",
         "pp_theme_slide_id",
         "llm_gateway_url",
         "llm_gateway_api_key",
+        "database_url",
         mode="before",
     )
     @classmethod

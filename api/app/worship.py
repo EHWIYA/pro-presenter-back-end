@@ -54,9 +54,10 @@ def build_song_agent_body(
     song_title: str,
     build_mode: str,
     sections: list[dict[str, Any]],
+    source_song_id: str | None = None,
 ) -> dict[str, Any]:
     """PWA camelCase → 에이전트 snake_case."""
-    return {
+    body: dict[str, Any] = {
         "song_title": song_title,
         "build_mode": build_mode,
         "sections": [
@@ -68,6 +69,9 @@ def build_song_agent_body(
             for section in sections
         ],
     }
+    if source_song_id:
+        body["source_song_id"] = source_song_id
+    return body
 
 
 def build_agent_body(reference: str, settings: Settings) -> dict[str, Any]:
@@ -169,6 +173,7 @@ async def worship_build_song(
     song_title: str,
     build_mode: str,
     sections: list[dict[str, Any]],
+    source_song_id: str | None = None,
 ) -> dict[str, Any]:
     if not sections:
         raise WorshipError("sections가 비어 있습니다.", status_code=400)
@@ -176,6 +181,7 @@ async def worship_build_song(
         song_title=song_title,
         build_mode=build_mode,
         sections=sections,
+        source_song_id=source_song_id,
     )
     result = await _agent_post(venue, settings, "/build-song", json_body=body)
     if "song_title" not in result:

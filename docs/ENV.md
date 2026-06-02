@@ -21,6 +21,9 @@
 | `LLM_GATEWAY_URL` | `https://llm-api.livbee.co.kr` (로컬 게이트웨이: `http://127.0.0.1:18080`) |
 | `LLM_GATEWAY_API_KEY` | cursor-llm-gateway `x-api-key` |
 | `LLM_GATEWAY_TIMEOUT_SEC` | analyze·job 폴링 프록시 타임아웃 (기본 120) |
+| `DATABASE_URL` | `postgresql+asyncpg://pp_user:...@pro-presenter-postgres:5432/pp_db` (곡 라이브러리) |
+| `SONG_LIBRARY_AUTO_SAVE` | analyze job 완료 시 DB upsert (기본 `true`) |
+| `SONG_LIBRARY_DEFAULT_LIMIT` | 곡 검색 기본 limit (기본 20) |
 
 ## live/.env (NAS)
 
@@ -30,13 +33,25 @@
 | `GHCR_USER` / `GHCR_TOKEN` | private GHCR 시 |
 | `VENUES_JSON_PATH` | `/live/venues.json` |
 | `BIBLE_JSON_PATH` | `/app/data/bible-krv.json` |
-| `LLM_GATEWAY_URL` | `https://llm-api.livbee.co.kr` |
+| `LLM_GATEWAY_URL` | `http://172.25.0.1:18080` (Docker bridge → 호스트) |
 | `LLM_GATEWAY_API_KEY` | (필수) 찬양 악보 analyze 프록시 |
+| `DATABASE_URL` | compose `environment` 로 주입 (아래 Postgres 참고) |
+| `SONG_LIBRARY_AUTO_SAVE` | `true` |
+| `SONG_LIBRARY_DEFAULT_LIMIT` | `20` |
+
+## live/.env.postgres (NAS, git 제외)
+
+| 변수 | 예시 |
+|------|------|
+| `PP_POSTGRES_DB` | `pp_db` |
+| `PP_POSTGRES_USER` | `pp_user` |
+| `PP_POSTGRES_PASSWORD` | (필수) |
 
 ## NAS 포트
 
 - 컨테이너 API: **8000** (이미지 기본)
 - 호스트 접속: **8003** (`live/docker-compose.yml` → `127.0.0.1:8003:8000`)
+- Postgres: **5434** (`127.0.0.1:5434` → `pro-presenter-postgres:5432`)
 - `/health`·`/venues`: `http://127.0.0.1:8003/...`
 - `/health` 정상: `live/data/bible-krv.json` 실데이터 (`./bin/fetch-bible-krv.sh`)
 

@@ -1,14 +1,45 @@
-# NAS 운영용 — 이미지 pull 만 (빌드 없음). GHA가 GHCR에 push 한 뒤 사용.
-# 사전 준비: 이 폴더에 .env, venues.json, data/bible-krv.json
+# NAS 운영용 — 이미지 pull + Postgres 17. GHA가 GHCR push 후 deploy.sh 사용.
+# 사전 준비: .env, .env.postgres, venues.json, data/bible-krv.json, data/postgres/
 
 services:
+  pro-presenter-postgres:
+    image: postgres:17-alpine
+    container_name: pro-presenter-postgres
+    env_file:
+      - .env.postgres
+    environment:
+      POSTGRES_DB: ${PP_POSTGRES_DB:-pp_db}
+      POSTGRES_USER: ${PP_POSTGRES_USER:-pp_user}
+      POSTGRES_PASSWORD: ${PP_POSTGRES_PASSWORD:?set in .env.postgres}
+      TZ: Asia/Seoul
+    volumes:
+      - ./data/postgres:/var/lib/postgresql/data
+    ports:
+      - "127.0.0.1:5434:5432"
+    restart: unless-stopped
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "pg_isready -U ${PP_POSTGRES_USER:-pp_user} -d ${PP_POSTGRES_DB:-pp_db}",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
   pro-presenter-api:
     image: ${PP_API_IMAGE:?PP_API_IMAGE is required}
     container_name: pro-presenter-api
+    depends_on:
+      pro-presenter-postgres:
+        condition: service_healthy
     ports:
       - "127.0.0.1:8003:8000"
     env_file:
       - .env
+      - .env.postgres
+    environment:
+      DATABASE_URL: postgresql+asyncpg://${PP_POSTGRES_USER:-pp_user}:${PP_POSTGRES_PASSWORD}@pro-presenter-postgres:5432/${PP_POSTGRES_DB:-pp_db}
     volumes:
       - ./venues.json:/live/venues.json:ro
       - ./data/bible-krv.json:/app/data/bible-krv.json:ro

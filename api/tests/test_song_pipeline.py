@@ -13,17 +13,19 @@ def test_build_song_agent_body_snake_case():
         sections=[
             {"type": "verse", "label": "1절", "lines": ["첫 줄", "둘째 줄"]},
         ],
+        source_song_id="550e8400-e29b-41d4-a716-446655440000",
     )
     assert body == {
         "song_title": "주님의 마음",
         "build_mode": "append",
+        "source_song_id": "550e8400-e29b-41d4-a716-446655440000",
         "sections": [
             {"type": "verse", "label": "1절", "lines": ["첫 줄", "둘째 줄"]},
         ],
     }
 
 
-@patch("app.main.song_analyze", new_callable=AsyncMock)
+@patch("app.songs_api.song_analyze", new_callable=AsyncMock)
 def test_song_analyze_lyrics(mock_analyze):
     mock_analyze.return_value = {
         "jobId": "job-abc",
@@ -33,10 +35,10 @@ def test_song_analyze_lyrics(mock_analyze):
     with TestClient(app) as client:
         r = client.post(
             "/api/v1/song/analyze",
-            json={"songTitle": "테스트", "lyricsText": "1절 가사\n2줄"},
+            json={"songTitle": "미등록곡", "lyricsText": "1절 가사\n2줄"},
         )
 
-    assert r.status_code == 200
+    assert r.status_code == 202
     data = r.json()
     assert data["jobId"] == "job-abc"
     assert data["pollUrl"] == "/api/v1/song/jobs/job-abc"
@@ -44,7 +46,7 @@ def test_song_analyze_lyrics(mock_analyze):
     assert mock_analyze.await_args.args[1]["lyricsText"] == "1절 가사\n2줄"
 
 
-@patch("app.main.song_get_job", new_callable=AsyncMock)
+@patch("app.songs_api.song_get_job", new_callable=AsyncMock)
 def test_song_job_poll(mock_get_job):
     mock_get_job.return_value = {
         "jobId": "job-abc",
