@@ -29,8 +29,8 @@ alwaysApply: true
 | bucket | GHA 신호 | 대표 원인 |
 |--------|----------|-----------|
 | **backend** | `CI` → job `test` 또는 `publish` 실패 | pytest, Dockerfile, GHCR 권한, `api/` 코드 |
-| **server** | `Deploy NAS` 실패 또는 SSH/deploy.sh 오류 | Secrets, NAS SSH, `live/bin/deploy.sh`, compose, `.env` |
-| **both** | CI 성공 후 NAS/PP E2E만 실패, 또는 API·현장 양쪽 설정 불일치 | API + `live/` + PP 동시 점검 |
+| **server** | `Deploy NAS` 실패 또는 SSH/deploy.sh 오류 | Secrets, NAS SSH, `ops/bin/deploy.sh`, compose, `.env` |
+| **both** | CI 성공 후 NAS/PP E2E만 실패, 또는 API·현장 양쪽 설정 불일치 | API + `ops/` + PP 동시 점검 |
 | **unknown** | 워크플로 미실행·API 403(로그 없음) | 토큰·권한·SHA 미반영 |
 
 - `Deploy NAS` **skipped** + `CI` **failure** → **backend** (배포는 안 돈 것이 정상)

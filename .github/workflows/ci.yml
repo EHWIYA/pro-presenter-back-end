@@ -27,7 +27,7 @@ jobs:
       - run: python -m pytest --tb=short
         env:
           PYTHONUTF8: "1"
-          VENUES_JSON_PATH: ${{ github.workspace }}/live/venues.json
+          VENUES_JSON_PATH: ${{ github.workspace }}/ops/venues.json
           BIBLE_JSON_PATH: ${{ github.workspace }}/api/data/bible-krv.sample.json
 
   publish:

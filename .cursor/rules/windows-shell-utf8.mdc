@@ -22,7 +22,7 @@ alwaysApply: true
    ```powershell
    .\.cursor\scripts\dev-test.ps1
    ```
-4. **Linux/NAS** (`live/bin/*.sh`, Docker on NAS)는 bash — 위 PowerShell 규칙과 혼동하지 않는다.
+4. **Linux/NAS** (`ops/bin/*.sh`, Docker on NAS)는 bash — 위 PowerShell 규칙과 혼동하지 않는다.
 
 ## 수동 PowerShell (스크립트 없을 때)
 

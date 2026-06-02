@@ -1,4 +1,4 @@
-"""live/venues.json 로드 및 ProPresenter 연결 점검."""
+"""ops/venues.json 로드 및 ProPresenter 연결 점검."""
 
 from __future__ import annotations
 

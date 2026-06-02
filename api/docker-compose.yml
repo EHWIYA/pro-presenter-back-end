@@ -1,4 +1,4 @@
-# 로컬 개발용 (소스 build). NAS 운영은 ../live/docker-compose.yml + GHCR pull.
+# 로컬 개발용 (소스 build). NAS 운영은 ../ops/docker-compose.yml + GHCR pull.
 services:
   pro-presenter-postgres:
     image: postgres:17-alpine
@@ -29,6 +29,6 @@ services:
     environment:
       DATABASE_URL: postgresql+asyncpg://pp_user:pp_dev_password@pro-presenter-postgres:5432/pp_db
     volumes:
-      - ../live/venues.json:/live/venues.json:ro
+      - ../ops/venues.json:/live/venues.json:ro
       - ./data/bible-krv.sample.json:/app/data/bible-krv.json:ro
     restart: unless-stopped

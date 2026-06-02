@@ -1,4 +1,4 @@
-# NAS live/bin/deploy.sh 실행만 (pull·compose·health는 NAS에서 처리)
+# NAS <repo>/ops/bin/deploy.sh 실행만 (pull·compose·health는 NAS에서 처리)
 name: Deploy NAS
 
 on:
@@ -36,5 +36,5 @@ jobs:
           script_stop: true
           command_timeout: 10m
           script: |
-            ${{ secrets.NAS_DEPLOY_PATH || '/home/iwh/pro-presenter/live' }}/bin/deploy.sh \
+            ${{ secrets.NAS_DEPLOY_PATH || '/home/iwh/pro-presenter/api' }}/ops/bin/deploy.sh \
               ${{ env.GHCR_IMAGE }}:${{ github.event_name == 'workflow_dispatch' && github.event.inputs.image_tag || 'main' }}

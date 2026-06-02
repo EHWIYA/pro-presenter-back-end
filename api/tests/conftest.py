@@ -8,6 +8,6 @@ from pathlib import Path
 _REPO_ROOT = Path(__file__).resolve().parents[2]
 _API_ROOT = Path(__file__).resolve().parents[1]
 
-os.environ["VENUES_JSON_PATH"] = str(_REPO_ROOT / "live" / "venues.json")
+os.environ["VENUES_JSON_PATH"] = str(_REPO_ROOT / "ops" / "venues.json")
 os.environ["BIBLE_JSON_PATH"] = str(_API_ROOT / "data" / "bible-krv.sample.json")
 os.environ.setdefault("DATABASE_URL", "sqlite+aiosqlite:///:memory:")

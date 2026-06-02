@@ -93,7 +93,7 @@ def plan_for(bucket: str, workflow: str, job: str, log: str | None) -> list[str]
     if bucket == "server":
         return [
             "GHA Deploy NAS / appleboy/ssh-action 로그에서 SSH·deploy.sh 오류 확인",
-            "NAS: live/.env, docker compose, ghcr pull, bin/deploy.sh 수동 실행",
+            "NAS: ops/.env, docker compose, ghcr pull, bin/deploy.sh 수동 실행",
             "Secrets: NAS_HOST, NAS_USER, NAS_SSH_KEY, NAS_DEPLOY_PATH 점검",
             "현장: venues.json probe, PP API (docs/ENV.md)",
         ]

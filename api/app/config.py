@@ -26,7 +26,7 @@ class Settings(BaseSettings):
     )
 
     venues_json_path: Path = Field(
-        default=_API_DIR.parent / "live" / "venues.json",
+        default=_API_DIR.parent / "ops" / "venues.json",
         validation_alias="VENUES_JSON_PATH",
     )
     bible_json_path: Path = Field(
