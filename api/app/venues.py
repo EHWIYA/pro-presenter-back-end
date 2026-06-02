@@ -25,6 +25,7 @@ class Venue:
     enabled: bool
     tailscale_hostname: str | None = None
     agent_port: int | None = None
+    agent_base_url: str | None = None
     pp_theme_id: str | None = None
     pp_theme_slide_id: str | None = None
     pp_library_id: str | None = None
@@ -55,6 +56,7 @@ def load_venues(path: Path) -> list[Venue]:
                 enabled=bool(item.get("enabled", True)),
                 tailscale_hostname=item.get("tailscale_hostname"),
                 agent_port=int(item["agent_port"]) if item.get("agent_port") is not None else None,
+                agent_base_url=item.get("agent_base_url"),
                 pp_theme_id=item.get("pp_theme_id"),
                 pp_theme_slide_id=item.get("pp_theme_slide_id") or item.get("pp_action_uuid"),
                 pp_library_id=item.get("pp_library_id") or item.get("pp_document_uuid"),

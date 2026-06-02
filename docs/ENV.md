@@ -18,6 +18,9 @@
 | `AGENT_GROUP_THEME_KEY` | 에이전트 build `group_theme_key` (기본 `reader-context`) |
 | `AGENT_BUILD_MODE` | `append` (기본) |
 | `AGENT_AUTO_TRIGGER` | `false` (기본) |
+| `LLM_GATEWAY_URL` | `https://llm-api.livbee.co.kr` (로컬 게이트웨이: `http://127.0.0.1:18080`) |
+| `LLM_GATEWAY_API_KEY` | cursor-llm-gateway `x-api-key` |
+| `LLM_GATEWAY_TIMEOUT_SEC` | analyze·job 폴링 프록시 타임아웃 (기본 120) |
 
 ## live/.env (NAS)
 
@@ -27,6 +30,8 @@
 | `GHCR_USER` / `GHCR_TOKEN` | private GHCR 시 |
 | `VENUES_JSON_PATH` | `/live/venues.json` |
 | `BIBLE_JSON_PATH` | `/app/data/bible-krv.json` |
+| `LLM_GATEWAY_URL` | `https://llm-api.livbee.co.kr` |
+| `LLM_GATEWAY_API_KEY` | (필수) 찬양 악보 analyze 프록시 |
 
 ## NAS 포트
 

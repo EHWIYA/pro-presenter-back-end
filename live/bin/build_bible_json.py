@@ -27,6 +27,17 @@ _ALIAS_TO_KEY = {
 }
 
 
+_VERSE_QUOTE_CHARS = '"\'\u201c\u201d\u2018\u2019'
+TRANSLATION_KRV = "개역개정"
+
+
+def normalize_verse_text(text: str) -> str:
+    cleaned = text.strip()
+    for ch in _VERSE_QUOTE_CHARS:
+        cleaned = cleaned.replace(ch, "")
+    return cleaned
+
+
 def _book_key(name: str, index: int) -> str | None:
     name = name.strip()
     if name in _ALIAS_TO_KEY:
@@ -48,11 +59,15 @@ def convert(raw: list[Any]) -> dict[str, Any]:
         for ch_idx, verses in enumerate(book.get("chapters", []), start=1):
             if not isinstance(verses, list):
                 continue
-            ch_map = {str(vi): str(t).strip() for vi, t in enumerate(verses, 1) if t}
+            ch_map = {
+                str(vi): normalize_verse_text(str(t))
+                for vi, t in enumerate(verses, 1)
+                if t
+            }
             if ch_map:
                 chapters[str(ch_idx)] = ch_map
         books[key] = {"name": str(book.get("name") or key), "chapters": chapters}
-    return {"translation": "개역개정 (converted)", "books": books}
+    return {"translation": TRANSLATION_KRV, "books": books}
 
 
 def main() -> int:

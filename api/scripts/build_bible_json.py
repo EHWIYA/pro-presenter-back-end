@@ -20,7 +20,13 @@ from typing import Any
 # app 패키지 import
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from app.bible import BOOK_CANON_ORDER, BOOK_DISPLAY, _normalize_book_key  # noqa: E402
+from app.bible import (  # noqa: E402
+    BOOK_CANON_ORDER,
+    BOOK_DISPLAY,
+    TRANSLATION_KRV,
+    _normalize_book_key,
+    normalize_verse_text,
+)
 
 
 def convert_thiagobodruk(raw: list[Any]) -> dict[str, Any]:
@@ -41,12 +47,40 @@ def convert_thiagobodruk(raw: list[Any]) -> dict[str, Any]:
             ch_map: dict[str, str] = {}
             for vs_idx, text in enumerate(verses, start=1):
                 if text:
-                    ch_map[str(vs_idx)] = str(text).strip()
+                    ch_map[str(vs_idx)] = normalize_verse_text(str(text))
             if ch_map:
                 chapters[str(ch_idx)] = ch_map
 
         books[key] = {"name": BOOK_DISPLAY.get(key, key), "chapters": chapters}
-    return {"translation": "개역개정 (converted)", "books": books}
+    return {"translation": TRANSLATION_KRV, "books": books}
+
+
+def normalize_books_dict(data: dict[str, Any]) -> dict[str, Any]:
+    """기존 books dict — 구절 정규화·번역 메타 고정."""
+    books = data.get("books")
+    if not isinstance(books, dict):
+        return data
+    out_books: dict[str, Any] = {}
+    for book_key, book_val in books.items():
+        if not isinstance(book_val, dict):
+            continue
+        chapters = book_val.get("chapters", {})
+        if not isinstance(chapters, dict):
+            continue
+        out_chapters: dict[str, dict[str, str]] = {}
+        for ch_str, verses in chapters.items():
+            if not isinstance(verses, dict):
+                continue
+            out_chapters[str(ch_str)] = {
+                str(vs_str): normalize_verse_text(str(text))
+                for vs_str, text in verses.items()
+                if text
+            }
+        out_books[book_key] = {
+            "name": book_val.get("name", book_key),
+            "chapters": out_chapters,
+        }
+    return {"translation": TRANSLATION_KRV, "books": out_books}
 
 
 def main() -> int:
@@ -61,7 +95,7 @@ def main() -> int:
     if isinstance(raw, list):
         out = convert_thiagobodruk(raw)
     elif isinstance(raw, dict) and "books" in raw:
-        out = raw
+        out = normalize_books_dict(raw)
     else:
         print("지원하지 않는 입력 형식입니다.", file=sys.stderr)
         return 1

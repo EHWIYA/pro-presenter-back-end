@@ -34,6 +34,7 @@ async def parse_verse(
         "book": verse.book_name,
         "chapter": verse.chapter,
         "verse": verse.verse,
+        "translation": bible.translation,
     }
 
 

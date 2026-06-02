@@ -47,6 +47,13 @@ class Settings(BaseSettings):
     agent_build_mode: str = Field(default="append", validation_alias="AGENT_BUILD_MODE")
     agent_auto_trigger: bool = Field(default=False, validation_alias="AGENT_AUTO_TRIGGER")
 
+    llm_gateway_url: str | None = Field(
+        default="https://llm-api.livbee.co.kr",
+        validation_alias="LLM_GATEWAY_URL",
+    )
+    llm_gateway_api_key: str | None = Field(default=None, validation_alias="LLM_GATEWAY_API_KEY")
+    llm_gateway_timeout_sec: float = Field(default=120.0, validation_alias="LLM_GATEWAY_TIMEOUT_SEC")
+
     pp_theme_id: str | None = Field(default=None, validation_alias="PP_THEME_ID")
     pp_theme_slide_id: str | None = Field(
         default=None,
@@ -65,7 +72,14 @@ class Settings(BaseSettings):
     api_key: str | None = Field(default=None, validation_alias="API_KEY")
     send_log_path: Path | None = Field(default=None, validation_alias="SEND_LOG_PATH")
 
-    @field_validator("api_key", "pp_theme_id", "pp_theme_slide_id", mode="before")
+    @field_validator(
+        "api_key",
+        "pp_theme_id",
+        "pp_theme_slide_id",
+        "llm_gateway_url",
+        "llm_gateway_api_key",
+        mode="before",
+    )
     @classmethod
     def empty_str_to_none(cls, value: object) -> object:
         if value == "":

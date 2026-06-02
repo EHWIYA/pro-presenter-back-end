@@ -95,6 +95,19 @@ _REF_RE = re.compile(
     r"(?:\s*-\s*(?P<verse_end>\d+))?\s*$"
 )
 
+# 성경 본문에 붙는 인용 부호(슬라이드 표시용 제거)
+_VERSE_QUOTE_CHARS = '"\'\u201c\u201d\u2018\u2019'
+
+TRANSLATION_KRV = "개역개정"
+
+
+def normalize_verse_text(text: str) -> str:
+    """구절 본문 정규화: trim, 인용 부호 제거."""
+    cleaned = text.strip()
+    for ch in _VERSE_QUOTE_CHARS:
+        cleaned = cleaned.replace(ch, "")
+    return cleaned
+
 
 class BibleError(Exception):
     """성경 조회/파싱 오류."""
@@ -125,10 +138,16 @@ class BibleStore:
         self.path = path
         self._data: Any | None = None
         self._index: dict[tuple[str, int, int], str] | None = None
+        self._translation: str | None = None
 
     @property
     def verse_count(self) -> int:
         return len(self._build_index())
+
+    @property
+    def translation(self) -> str:
+        self._load_raw()
+        return self._translation or TRANSLATION_KRV
 
     def _load_raw(self) -> Any:
         if self._data is None:
@@ -140,6 +159,10 @@ class BibleStore:
                 )
             with self.path.open(encoding="utf-8") as f:
                 self._data = json.load(f)
+            if isinstance(self._data, dict):
+                raw_tr = self._data.get("translation")
+                if isinstance(raw_tr, str) and raw_tr.strip():
+                    self._translation = raw_tr.strip()
         return self._data
 
     def _build_index(self) -> dict[tuple[str, int, int], str]:
@@ -162,7 +185,7 @@ class BibleStore:
                         ch = int(ch_str)
                         for vs_str, text in verses.items():
                             if text:
-                                index[(canonical, ch, int(vs_str))] = str(text).strip()
+                                index[(canonical, ch, int(vs_str))] = normalize_verse_text(str(text))
         elif isinstance(raw, list):
             for i, book in enumerate(raw):
                 if not isinstance(book, dict):
@@ -182,7 +205,7 @@ class BibleStore:
                             continue
                         for vs_idx, text in enumerate(verses, start=1):
                             if text:
-                                index[(canonical, ch_idx, vs_idx)] = str(text).strip()
+                                index[(canonical, ch_idx, vs_idx)] = normalize_verse_text(str(text))
                 else:
                     for chapter in chapters:
                         if not isinstance(chapter, dict):
@@ -192,7 +215,7 @@ class BibleStore:
                             vs = int(verse.get("verse") or verse.get("number"))
                             text = verse.get("text") or verse.get("content", "")
                             if text:
-                                index[(canonical, ch, vs)] = str(text).strip()
+                                index[(canonical, ch, vs)] = normalize_verse_text(str(text))
         else:
             raise BibleError("지원하지 않는 성경 JSON 형식입니다.")
 

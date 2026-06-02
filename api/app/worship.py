@@ -43,8 +43,31 @@ def agent_port_for(venue: Venue, settings: Settings) -> int:
 
 
 def agent_base_url(venue: Venue, settings: Settings) -> str:
+    if venue.agent_base_url:
+        return venue.agent_base_url.rstrip("/")
     port = agent_port_for(venue, settings)
     return f"http://{venue.tailscale_ip}:{port}"
+
+
+def build_song_agent_body(
+    *,
+    song_title: str,
+    build_mode: str,
+    sections: list[dict[str, Any]],
+) -> dict[str, Any]:
+    """PWA camelCase → 에이전트 snake_case."""
+    return {
+        "song_title": song_title,
+        "build_mode": build_mode,
+        "sections": [
+            {
+                "type": section["type"],
+                "label": section["label"],
+                "lines": section["lines"],
+            }
+            for section in sections
+        ],
+    }
 
 
 def build_agent_body(reference: str, settings: Settings) -> dict[str, Any]:
@@ -137,3 +160,24 @@ async def worship_trigger(
     index: int,
 ) -> dict[str, Any]:
     return await _agent_post(venue, settings, f"/trigger?index={index}")
+
+
+async def worship_build_song(
+    venue: Venue,
+    settings: Settings,
+    *,
+    song_title: str,
+    build_mode: str,
+    sections: list[dict[str, Any]],
+) -> dict[str, Any]:
+    if not sections:
+        raise WorshipError("sections가 비어 있습니다.", status_code=400)
+    body = build_song_agent_body(
+        song_title=song_title,
+        build_mode=build_mode,
+        sections=sections,
+    )
+    result = await _agent_post(venue, settings, "/build-song", json_body=body)
+    if "song_title" not in result:
+        result = {**result, "song_title": song_title}
+    return result
