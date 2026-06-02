@@ -38,12 +38,5 @@ jobs:
           script: |
             DEPLOY_ROOT="${{ secrets.NAS_DEPLOY_PATH || '/home/iwh/pro-presenter/api' }}"
             IMAGE="${{ env.GHCR_IMAGE }}:${{ github.event_name == 'workflow_dispatch' && github.event.inputs.image_tag || 'main' }}"
-            SCRIPT_PATH=""
-            if [ -f "${DEPLOY_ROOT}/bin/deploy.sh" ]; then SCRIPT_PATH="${DEPLOY_ROOT}/bin/deploy.sh"; fi
-            if [ -z "${SCRIPT_PATH}" ] && [ -f "${DEPLOY_ROOT}/ops/bin/deploy.sh" ]; then SCRIPT_PATH="${DEPLOY_ROOT}/ops/bin/deploy.sh"; fi
-            if [ -z "${SCRIPT_PATH}" ]; then
-              echo "deploy.sh not found under ${DEPLOY_ROOT}/bin or ${DEPLOY_ROOT}/ops/bin" >&2
-              exit 1
-            fi
-            echo "using deploy script: ${SCRIPT_PATH}"
-            bash "${SCRIPT_PATH}" "${IMAGE}"
+            echo "using deploy script: ${DEPLOY_ROOT}/bin/deploy.sh"
+            bash "${DEPLOY_ROOT}/bin/deploy.sh" "${IMAGE}"
