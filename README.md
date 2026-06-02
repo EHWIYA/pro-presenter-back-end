@@ -59,6 +59,18 @@ curl -s http://127.0.0.1:8003/venues/main/probe
 | POST | `/api/v1/verse/parse` | 참조 파싱 + 2줄 분할 (레거시) |
 | POST | `/api/v1/verse/send` | 파싱 후 PP 송출 (레거시, `venue_id` 필수) |
 
+### Probe/Status 응답 계약
+
+`/venues/{id}/probe`, `/venues/status`는 연결 판단 필드를 아래처럼 반환합니다.
+
+- `connected`: ProPresenter API 연결 상태
+- `agent_reachable`: 에이전트(기본 8787) `/health` 연결 상태
+- `status_code`, `message`: ProPresenter 점검 결과
+- `agent_status_code`, `agent_message`: 에이전트 점검 결과
+- `checked_at` (공통), `elapsed_ms` (`/venues/status` 항목별)
+
+FastAPI `response_model`로 OpenAPI(Swagger) 스키마도 동일 계약으로 노출됩니다.
+
 ### 요청 예시
 
 ```bash

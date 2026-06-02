@@ -43,6 +43,26 @@ class WorshipTriggerRequest(BaseModel):
     index: int = Field(..., examples=[33])
 
 
+class VenueProbeResponse(BaseModel):
+    connected: bool
+    venue_id: str
+    name: str
+    url: str | None = None
+    status_code: str
+    http_status: int | None = None
+    message: str
+    agent_reachable: bool
+    agent_status_code: str
+    agent_message: str
+    agent_health_url: str | None = None
+    checked_at: str
+    elapsed_ms: int | None = None
+
+
+class VenuesStatusResponse(BaseModel):
+    venues: list[VenueProbeResponse]
+
+
 def _require_api_key(
     settings: Settings = Depends(get_settings),
     x_api_key: str | None = Header(default=None, alias="X-API-Key"),
@@ -107,7 +127,7 @@ async def list_venues() -> dict[str, Any]:
     return {"venues": _get_venues().list_public()}
 
 
-@app.get("/venues/{venue_id}/probe")
+@app.get("/venues/{venue_id}/probe", response_model=VenueProbeResponse)
 async def venue_probe(
     venue_id: str,
     settings: Settings = Depends(get_settings),
@@ -116,10 +136,15 @@ async def venue_probe(
         venue = _get_venues().get(venue_id)
     except VenueError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
-    return await probe_venue(venue, settings.pp_http_timeout_sec)
+    return await probe_venue(
+        venue,
+        settings.pp_http_timeout_sec,
+        agent_timeout=settings.agent_http_timeout_sec,
+        default_agent_port=settings.agent_port,
+    )
 
 
-@app.get("/venues/status")
+@app.get("/venues/status", response_model=VenuesStatusResponse)
 async def venues_status(
     settings: Settings = Depends(get_settings),
 ) -> dict[str, Any]:
@@ -248,7 +273,13 @@ def _http_from_presentations(exc: PresentationsError) -> HTTPException:
 async def _probe_venue_safe(venue: Venue, timeout_sec: float) -> dict[str, Any]:
     started = time.monotonic()
     try:
-        result = await probe_venue(venue, timeout_sec)
+        settings = get_settings()
+        result = await probe_venue(
+            venue,
+            timeout_sec,
+            agent_timeout=settings.agent_http_timeout_sec,
+            default_agent_port=settings.agent_port,
+        )
     except Exception:
         elapsed_ms = int((time.monotonic() - started) * 1000)
         logger.exception(
@@ -262,10 +293,16 @@ async def _probe_venue_safe(venue: Venue, timeout_sec: float) -> dict[str, Any]:
             "name": venue.name,
             "status_code": "internal_error",
             "message": "상태 점검 중 내부 오류가 발생했습니다.",
+            "agent_reachable": False,
+            "agent_status_code": "unknown",
+            "agent_message": "에이전트 상태를 확인하지 못했습니다.",
             "checked_at": datetime.now(UTC).isoformat(),
         }
 
     elapsed_ms = int((time.monotonic() - started) * 1000)
+    result.setdefault("agent_reachable", False)
+    result.setdefault("agent_status_code", "unknown")
+    result.setdefault("agent_message", "에이전트 상태를 확인하지 못했습니다.")
     logger.info(
         "venues/status probe venue_id=%s connected=%s status_code=%s elapsed_ms=%s",
         result.get("venue_id", venue.id),

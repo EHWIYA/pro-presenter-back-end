@@ -116,9 +116,43 @@ def pp_ids_for_venue(venue: Venue, settings: Settings) -> dict[str, str | None]:
 async def probe_venue(
     venue: Venue,
     timeout: float,
+    *,
+    agent_timeout: float,
+    default_agent_port: int,
 ) -> dict[str, Any]:
     url = f"{venue.base_url}/v1/presentation/current"
+    if venue.agent_base_url:
+        agent_base = venue.agent_base_url.rstrip("/")
+    else:
+        agent_port = venue.agent_port if venue.agent_port is not None else default_agent_port
+        agent_base = f"http://{venue.tailscale_ip}:{agent_port}"
+    agent_health_url = f"{agent_base}/health"
     checked_at = datetime.now(UTC).isoformat()
+
+    agent_reachable = False
+    agent_status_code = "unknown"
+    agent_message = "에이전트 상태를 확인하지 못했습니다."
+
+    try:
+        async with httpx.AsyncClient(timeout=agent_timeout) as client:
+            agent_response = await client.get(agent_health_url)
+        if agent_response.status_code == 200:
+            agent_reachable = True
+            agent_status_code = "ok"
+            agent_message = "에이전트 연결됨"
+        else:
+            agent_status_code = "http_status_error"
+            agent_message = f"에이전트 HTTP {agent_response.status_code}"
+    except httpx.ConnectError:
+        agent_status_code = "connect_error"
+        agent_message = "에이전트 연결 불가"
+    except httpx.TimeoutException:
+        agent_status_code = "timeout"
+        agent_message = "에이전트 응답 시간 초과"
+    except httpx.HTTPError as exc:
+        agent_status_code = "http_error"
+        agent_message = f"에이전트 통신 오류: {exc}"
+
     try:
         async with httpx.AsyncClient(timeout=timeout) as client:
             response = await client.get(url)
@@ -130,6 +164,10 @@ async def probe_venue(
             "url": url,
             "status_code": "connect_error",
             "message": "Tailscale 연결 불가 또는 ProPresenter가 꺼져 있습니다.",
+            "agent_reachable": agent_reachable,
+            "agent_status_code": agent_status_code,
+            "agent_message": agent_message,
+            "agent_health_url": agent_health_url,
             "checked_at": checked_at,
         }
     except httpx.TimeoutException:
@@ -140,6 +178,10 @@ async def probe_venue(
             "url": url,
             "status_code": "timeout",
             "message": "요청 시간 초과 - 방화벽 또는 ProPresenter API 미응답",
+            "agent_reachable": agent_reachable,
+            "agent_status_code": agent_status_code,
+            "agent_message": agent_message,
+            "agent_health_url": agent_health_url,
             "checked_at": checked_at,
         }
     except httpx.HTTPError as exc:
@@ -150,6 +192,10 @@ async def probe_venue(
             "url": url,
             "status_code": "http_error",
             "message": f"HTTP 통신 오류: {exc}",
+            "agent_reachable": agent_reachable,
+            "agent_status_code": agent_status_code,
+            "agent_message": agent_message,
+            "agent_health_url": agent_health_url,
             "checked_at": checked_at,
         }
 
@@ -172,5 +218,9 @@ async def probe_venue(
         "status_code": status_code,
         "http_status": response.status_code,
         "message": message,
+        "agent_reachable": agent_reachable,
+        "agent_status_code": agent_status_code,
+        "agent_message": agent_message,
+        "agent_health_url": agent_health_url,
         "checked_at": checked_at,
     }

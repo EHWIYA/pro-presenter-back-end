@@ -51,6 +51,9 @@ def test_venues_status(mock_probe):
             "connected": True,
             "status_code": "ok",
             "message": "연결됨",
+            "agent_reachable": True,
+            "agent_status_code": "ok",
+            "agent_message": "에이전트 연결됨",
             "checked_at": "2026-01-01T00:00:00+00:00",
         },
         {
@@ -59,6 +62,9 @@ def test_venues_status(mock_probe):
             "connected": False,
             "status_code": "timeout",
             "message": "요청 시간 초과 - 방화벽 또는 ProPresenter API 미응답",
+            "agent_reachable": False,
+            "agent_status_code": "timeout",
+            "agent_message": "에이전트 응답 시간 초과",
             "checked_at": "2026-01-01T00:00:00+00:00",
         },
     ]
@@ -68,6 +74,9 @@ def test_venues_status(mock_probe):
     data = r.json()
     assert len(data["venues"]) >= 1
     assert "connected" in data["venues"][0]
+    assert "agent_reachable" in data["venues"][0]
+    assert "agent_status_code" in data["venues"][0]
+    assert "agent_message" in data["venues"][0]
     assert "elapsed_ms" in data["venues"][0]
 
 
@@ -80,3 +89,4 @@ def test_venues_status_partial_success_on_probe_exception(mock_probe):
     data = r.json()["venues"]
     assert len(data) >= 1
     assert any(v["status_code"] == "internal_error" for v in data)
+    assert all("agent_reachable" in v for v in data)
