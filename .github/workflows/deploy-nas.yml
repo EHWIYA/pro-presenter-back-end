@@ -38,20 +38,22 @@ jobs:
           script: |
             DEPLOY_ROOT="${{ secrets.NAS_DEPLOY_PATH || '/home/iwh/pro-presenter/api' }}"
             IMAGE="${{ env.GHCR_IMAGE }}:${{ github.event_name == 'workflow_dispatch' && github.event.inputs.image_tag || 'main' }}"
-            CANDIDATES="
-            ${DEPLOY_ROOT}/ops/bin/deploy.sh
-            ${DEPLOY_ROOT}/bin/deploy.sh
-            /home/iwh/pro-presenter/api/ops/bin/deploy.sh
-            /home/iwh/pro-presenter/live/bin/deploy.sh
-            /home/iwh/pro-presenter/pro-presenter-back-end/ops/bin/deploy.sh
-            "
-            for script_path in ${CANDIDATES}; do
-              if [ -x "${script_path}" ]; then
-                echo "using deploy script: ${script_path}"
-                "${script_path}" "${IMAGE}"
-                exit 0
-              fi
-            done
-            echo "deploy.sh not found. checked paths:" >&2
-            for script_path in ${CANDIDATES}; do echo " - ${script_path}" >&2; done
-            exit 1
+            if [ -x "${DEPLOY_ROOT}/ops/bin/deploy.sh" ]; then
+              echo "using deploy script: ${DEPLOY_ROOT}/ops/bin/deploy.sh"
+              "${DEPLOY_ROOT}/ops/bin/deploy.sh" "${IMAGE}"
+            elif [ -x "${DEPLOY_ROOT}/bin/deploy.sh" ]; then
+              echo "using deploy script: ${DEPLOY_ROOT}/bin/deploy.sh"
+              "${DEPLOY_ROOT}/bin/deploy.sh" "${IMAGE}"
+            elif [ -x "/home/iwh/pro-presenter/api/ops/bin/deploy.sh" ]; then
+              echo "using deploy script: /home/iwh/pro-presenter/api/ops/bin/deploy.sh"
+              "/home/iwh/pro-presenter/api/ops/bin/deploy.sh" "${IMAGE}"
+            elif [ -x "/home/iwh/pro-presenter/live/bin/deploy.sh" ]; then
+              echo "using deploy script: /home/iwh/pro-presenter/live/bin/deploy.sh"
+              "/home/iwh/pro-presenter/live/bin/deploy.sh" "${IMAGE}"
+            elif [ -x "/home/iwh/pro-presenter/pro-presenter-back-end/ops/bin/deploy.sh" ]; then
+              echo "using deploy script: /home/iwh/pro-presenter/pro-presenter-back-end/ops/bin/deploy.sh"
+              "/home/iwh/pro-presenter/pro-presenter-back-end/ops/bin/deploy.sh" "${IMAGE}"
+            else
+              echo "deploy.sh not found under known candidate paths" >&2
+              exit 1
+            fi
