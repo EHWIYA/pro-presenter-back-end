@@ -38,5 +38,8 @@ jobs:
           script: |
             DEPLOY_ROOT="${{ secrets.NAS_DEPLOY_PATH || '/home/iwh/pro-presenter/api' }}"
             IMAGE="${{ env.GHCR_IMAGE }}:${{ github.event_name == 'workflow_dispatch' && github.event.inputs.image_tag || 'main' }}"
+            pwd
+            ls -la "${DEPLOY_ROOT}" || true
+            ls -la "${DEPLOY_ROOT}/bin" || true
             echo "using deploy script: ${DEPLOY_ROOT}/bin/deploy.sh"
             bash "${DEPLOY_ROOT}/bin/deploy.sh" "${IMAGE}"
