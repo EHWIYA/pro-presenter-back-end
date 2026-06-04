@@ -60,7 +60,12 @@ class SongSectionsReplaceRequest(BaseModel):
 
 
 class SongAnalyzeRequest(BaseModel):
-    song_title: str = Field(..., alias="songTitle", examples=["주님의 마음"])
+    song_title: str | None = Field(
+        default=None,
+        alias="songTitle",
+        description="선매칭·게이트웨이 힌트용. 신규 악보(이미지만)는 생략 가능.",
+        examples=["주님의 마음"],
+    )
     image_base64: str | None = Field(default=None, alias="imageBase64")
     image_mime_type: str | None = Field(default=None, alias="imageMimeType")
     lyrics_text: str | None = Field(default=None, alias="lyricsText")
@@ -235,14 +240,17 @@ async def api_song_analyze(
     session: OptionalDbSession,
     settings: Settings = Depends(get_settings),
 ) -> dict[str, Any]:
-    if session is not None and not body.force_reanalyze and body.song_title.strip():
-        matches = await find_by_title_normalized(session, body.song_title)
+    title_for_match = (body.song_title or "").strip()
+    if session is not None and not body.force_reanalyze and title_for_match:
+        matches = await find_by_title_normalized(session, title_for_match)
         if len(matches) == 1:
             return library_hit_response(matches[0])
         if len(matches) > 1:
-            return library_candidates_response(body.song_title, matches)
+            return library_candidates_response(title_for_match, matches)
 
-    upstream_body: dict[str, Any] = {"songTitle": body.song_title}
+    upstream_body: dict[str, Any] = {}
+    if title_for_match:
+        upstream_body["songTitle"] = title_for_match
     input_kind = "lyrics"
     if body.lyrics_text:
         upstream_body["lyricsText"] = body.lyrics_text

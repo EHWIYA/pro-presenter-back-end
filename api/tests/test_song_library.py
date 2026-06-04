@@ -89,6 +89,27 @@ def test_analyze_library_hit(mock_analyze, client: TestClient):
 
 
 @patch("app.songs_api.song_analyze", new_callable=AsyncMock)
+def test_analyze_image_only_skips_library_hit(mock_analyze, client: TestClient):
+    mock_analyze.return_value = {
+        "jobId": "job-new-img",
+        "status": "queued",
+        "pollUrl": "/api/v1/song/jobs/job-new-img",
+    }
+    _create_song(client, "주님의 마음")
+
+    r = client.post(
+        "/api/v1/song/analyze",
+        json={
+            "imageBase64": "aGVsbG8=",
+            "imageMimeType": "image/jpeg",
+        },
+    )
+    assert r.status_code == 202
+    mock_analyze.assert_awaited_once()
+    assert "songTitle" not in mock_analyze.await_args.args[1]
+
+
+@patch("app.songs_api.song_analyze", new_callable=AsyncMock)
 def test_analyze_force_reanalyze(mock_analyze, client: TestClient):
     mock_analyze.return_value = {
         "jobId": "job-force",

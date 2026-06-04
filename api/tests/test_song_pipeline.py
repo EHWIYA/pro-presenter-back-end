@@ -88,6 +88,32 @@ def test_worship_build_song_endpoint(mock_post):
     assert mock_post.await_args.args[2] == "/build-song"
 
 
+@patch("app.songs_api.song_analyze", new_callable=AsyncMock)
+def test_song_analyze_image_only_no_title(mock_analyze):
+    mock_analyze.return_value = {
+        "jobId": "job-img",
+        "status": "pending",
+        "pollUrl": "/api/v1/song/jobs/job-img",
+    }
+    with TestClient(app) as client:
+        r = client.post(
+            "/api/v1/song/analyze",
+            json={
+                "imageBase64": "aGVsbG8=",
+                "imageMimeType": "image/jpeg",
+                "saveToLibrary": True,
+            },
+        )
+
+    assert r.status_code == 202
+    assert r.json()["jobId"] == "job-img"
+    mock_analyze.assert_awaited_once()
+    upstream = mock_analyze.await_args.args[1]
+    assert "songTitle" not in upstream
+    assert upstream["imageBase64"] == "aGVsbG8="
+    assert upstream["imageMimeType"] == "image/jpeg"
+
+
 def test_song_analyze_requires_image_or_lyrics():
     with TestClient(app) as client:
         r = client.post(
