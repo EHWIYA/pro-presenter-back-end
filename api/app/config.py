@@ -63,6 +63,18 @@ class Settings(BaseSettings):
         default=None,
         validation_alias=AliasChoices("PP_LIBRARY_ID", "PP_DOCUMENT_UUID"),
     )
+    pp_library_name_default: str = Field(
+        default="worship-2",
+        validation_alias="PP_LIBRARY_NAME_DEFAULT",
+    )
+    pp_libraries_timeout_sec: float = Field(
+        default=5.0,
+        validation_alias="PP_LIBRARIES_TIMEOUT_SEC",
+    )
+    pp_library_probe_timeout_sec: float = Field(
+        default=3.0,
+        validation_alias="PP_LIBRARY_PROBE_TIMEOUT_SEC",
+    )
     pp_presentation_id: str | None = Field(
         default=None,
         validation_alias=AliasChoices("PP_PRESENTATION_ID", "PP_PRESENTATION_UUID"),

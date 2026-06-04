@@ -30,6 +30,7 @@ class Venue:
     pp_theme_id: str | None = None
     pp_theme_slide_id: str | None = None
     pp_library_id: str | None = None
+    pp_library_name: str | None = None
     pp_presentation_id: str | None = None
     pp_message_id: str | None = None
 
@@ -61,6 +62,7 @@ def load_venues(path: Path) -> list[Venue]:
                 pp_theme_id=item.get("pp_theme_id"),
                 pp_theme_slide_id=item.get("pp_theme_slide_id") or item.get("pp_action_uuid"),
                 pp_library_id=item.get("pp_library_id") or item.get("pp_document_uuid"),
+                pp_library_name=item.get("pp_library_name"),
                 pp_presentation_id=item.get("pp_presentation_id") or item.get("pp_presentation_uuid"),
                 pp_message_id=item.get("pp_message_id"),
             )
@@ -103,6 +105,11 @@ class VenueRegistry:
         ]
 
 
+def pp_library_name_for_venue(venue: Venue, settings: Settings) -> str:
+    raw = venue.pp_library_name or settings.pp_library_name_default
+    return str(raw).strip() or settings.pp_library_name_default
+
+
 def pp_ids_for_venue(venue: Venue, settings: Settings) -> dict[str, str | None]:
     return {
         "theme_id": venue.pp_theme_id or settings.pp_theme_id,
@@ -113,12 +120,32 @@ def pp_ids_for_venue(venue: Venue, settings: Settings) -> dict[str, str | None]:
     }
 
 
+async def _probe_library_fields(
+    venue: Venue,
+    settings: Settings,
+) -> dict[str, str | None]:
+    from app.library_resolve import library_resolve_probe_fields, resolve_venue_library
+    from app.propresenter import ProPresenterClient
+
+    try:
+        client = ProPresenterClient(venue, settings.pp_http_timeout_sec)
+        result = await resolve_venue_library(client, venue, settings)
+        return library_resolve_probe_fields(result)
+    except Exception:
+        return {
+            "pp_library_resolved_id": None,
+            "pp_library_resolved_name": None,
+            "pp_library_resolve_source": None,
+        }
+
+
 async def probe_venue(
     venue: Venue,
     timeout: float,
     *,
     agent_timeout: float,
     default_agent_port: int,
+    settings: Settings | None = None,
 ) -> dict[str, Any]:
     url = f"{venue.base_url}/v1/presentation/current"
     if venue.agent_base_url:
@@ -210,7 +237,7 @@ async def probe_venue(
             status_code = "http_status_error"
             message = f"HTTP {response.status_code} - 포트({venue.pp_port}) 또는 API 경로를 확인하세요."
 
-    return {
+    payload: dict[str, Any] = {
         "connected": connected,
         "venue_id": venue.id,
         "name": venue.name,
@@ -224,3 +251,14 @@ async def probe_venue(
         "agent_health_url": agent_health_url,
         "checked_at": checked_at,
     }
+    if connected and settings is not None:
+        payload.update(await _probe_library_fields(venue, settings))
+    else:
+        payload.update(
+            {
+                "pp_library_resolved_id": None,
+                "pp_library_resolved_name": None,
+                "pp_library_resolve_source": None,
+            }
+        )
+    return payload

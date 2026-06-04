@@ -7,8 +7,9 @@ from datetime import UTC, datetime
 from typing import Any
 
 from app.config import Settings
+from app.library_resolve import resolve_venue_library
 from app.propresenter import ProPresenterClient, ProPresenterError
-from app.venues import Venue, pp_ids_for_venue
+from app.venues import Venue
 
 
 class PresentationsError(Exception):
@@ -41,7 +42,8 @@ async def list_venue_presentations(
     settings: Settings,
 ) -> dict[str, Any]:
     client = ProPresenterClient(venue, settings.pp_http_timeout_sec)
-    library_ids = await _resolve_library_ids(client, venue, settings)
+    resolved = await resolve_venue_library(client, venue, settings)
+    library_ids = resolved.library_ids
     if not library_ids:
         return {"venue_id": venue.id, "presentations": []}
 
@@ -58,26 +60,6 @@ async def list_venue_presentations(
 
     presentations = await _build_presentations(client, items)
     return {"venue_id": venue.id, "presentations": presentations}
-
-
-async def _resolve_library_ids(
-    client: ProPresenterClient,
-    venue: Venue,
-    settings: Settings,
-) -> list[str]:
-    configured = pp_ids_for_venue(venue, settings).get("library_id")
-    if configured:
-        return [str(configured)]
-
-    try:
-        raw = await client.get_json("/v1/libraries")
-    except ProPresenterError as exc:
-        if exc.status_code == 404:
-            return []
-        raise _wrap_pp_error(exc, "libraries") from exc
-
-    ids = _parse_library_ids(raw)
-    return ids
 
 
 def _parse_library_ids(raw: Any) -> list[str]:

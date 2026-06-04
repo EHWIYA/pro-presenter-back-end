@@ -31,10 +31,12 @@ class ProPresenterClient:
         path: str,
         *,
         json_body: Any | None = None,
+        timeout: float | None = None,
     ) -> httpx.Response:
         url = f"{self.base}{path}"
+        effective_timeout = self.timeout if timeout is None else timeout
         try:
-            async with httpx.AsyncClient(timeout=self.timeout) as client:
+            async with httpx.AsyncClient(timeout=effective_timeout) as client:
                 return await client.request(method, url, json=json_body)
         except httpx.ConnectError as exc:
             raise ProPresenterError(
@@ -49,8 +51,8 @@ class ProPresenterClient:
         except httpx.HTTPError as exc:
             raise ProPresenterError(f"HTTP 통신 오류: {exc}") from exc
 
-    async def get_json(self, path: str) -> Any:
-        response = await self._request("GET", path)
+    async def get_json(self, path: str, *, timeout: float | None = None) -> Any:
+        response = await self._request("GET", path, timeout=timeout)
         if response.status_code >= 400:
             raise _http_error(response, path)
         if not response.content:

@@ -12,11 +12,12 @@ NAS → `venues.json`의 `tailscale_ip` + `pp_port` → ProPresenter REST API (p
 
 | PP API | 용도 |
 |--------|------|
-| `GET /v1/libraries` | 라이브러리 ID 목록 (`pp_library_id` 미설정 시) |
+| `GET /v1/libraries` | 이름→UUID 해석 (짧은 타임아웃, 기본 5s) |
 | `GET /v1/library/{library_id}` | 프레젠테이션 항목 (`uuid`, `name`) |
 | `GET /v1/presentation/{uuid}` | 그룹·슬라이드 수 (`groups[].name`, `slides` 길이) |
 
-`venues.json` 또는 `.env`에 `pp_library_id`가 있으면 **해당 라이브러리만** 조회합니다.
+라이브러리 UUID는 **`pp_library_name`(기본 `worship-2`)** 으로 `/v1/libraries`에서 찾습니다.  
+`pp_library_id`가 있으면 짧은 probe(기본 3s)로 먼저 시도하고, hang·404·타임아웃 시 이름으로 fallback 합니다 (stale UUID 30s 502 방지).
 
 ## 응답 (200)
 

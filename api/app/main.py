@@ -57,6 +57,9 @@ class VenueProbeResponse(BaseModel):
     agent_health_url: str | None = None
     checked_at: str
     elapsed_ms: int | None = None
+    pp_library_resolved_id: str | None = None
+    pp_library_resolved_name: str | None = None
+    pp_library_resolve_source: str | None = None
 
 
 class VenuesStatusResponse(BaseModel):
@@ -141,6 +144,7 @@ async def venue_probe(
         settings.pp_http_timeout_sec,
         agent_timeout=settings.agent_http_timeout_sec,
         default_agent_port=settings.agent_port,
+        settings=settings,
     )
 
 
@@ -279,6 +283,7 @@ async def _probe_venue_safe(venue: Venue, timeout_sec: float) -> dict[str, Any]:
             timeout_sec,
             agent_timeout=settings.agent_http_timeout_sec,
             default_agent_port=settings.agent_port,
+            settings=settings,
         )
     except Exception:
         elapsed_ms = int((time.monotonic() - started) * 1000)
