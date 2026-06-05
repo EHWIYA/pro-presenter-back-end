@@ -89,6 +89,22 @@ class SongSection(Base):
     __table_args__ = (Index("idx_song_sections_song_id", "song_id", "sort_order"),)
 
 
+class SongCategoryMaster(Base):
+    __tablename__ = "song_categories"
+
+    id: Mapped[str] = mapped_column(Text, primary_key=True)
+    label: Mapped[str] = mapped_column(Text, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+        onupdate=func.now(),
+    )
+
+
 class SongSource(Base):
     __tablename__ = "song_sources"
 

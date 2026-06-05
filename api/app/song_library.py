@@ -17,6 +17,7 @@ from app.song_category import (
     normalize_category,
     validate_category,
 )
+from app.song_categories import custom_category_exists
 
 
 def _coerce_category(value: str) -> str:
@@ -24,6 +25,18 @@ def _coerce_category(value: str) -> str:
         return validate_category(value)
     except SongCategoryError as exc:
         raise SongLibraryError(str(exc), status_code=422) from exc
+
+
+async def _coerce_category_registered(session: AsyncSession, value: str) -> str:
+    category = _coerce_category(value)
+    if category.startswith("custom:") and not await custom_category_exists(
+        session, category
+    ):
+        raise SongLibraryError(
+            f"등록되지 않은 category입니다: {category}",
+            status_code=422,
+        )
+    return category
 from app.title_normalize import normalize_song_title
 
 
@@ -79,7 +92,8 @@ async def search_songs(
         .where(Song.deleted_at.is_(None))
     )
     if category is not None and category.strip():
-        base = base.where(Song.category == _coerce_category(category.strip()))
+        cat = _coerce_category(category.strip())
+        base = base.where(Song.category == cat)
     if q and q.strip():
         q_norm = normalize_song_title(q)
         pattern = f"%{q.strip()}%"
@@ -153,7 +167,7 @@ async def create_song(
         artist=artist,
         tags=tags,
         category=(
-            _coerce_category(category)
+            await _coerce_category_registered(session, category)
             if category is not None and str(category).strip()
             else DEFAULT_CATEGORY
         ),
@@ -187,7 +201,7 @@ async def update_song_meta(
     if tags is not None:
         song.tags = tags
     if category is not None:
-        song.category = _coerce_category(category)
+        song.category = await _coerce_category_registered(session, category)
     song.updated_at = datetime.now(UTC)
     await session.commit()
     return True
@@ -220,7 +234,7 @@ async def update_song_sections(
         song.title = title.strip()
         song.title_normalized = normalize_song_title(title)
     if category is not None:
-        song.category = _coerce_category(category)
+        song.category = await _coerce_category_registered(session, category)
     if sections:
         for sec in sections:
             _validate_section(sec)

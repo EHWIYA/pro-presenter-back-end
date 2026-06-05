@@ -16,6 +16,7 @@ from pydantic import BaseModel, Field
 from app.bible import BibleStore, list_books
 from app.config import Settings, get_settings, resolve_bible_path
 from app.database import dispose_db, ensure_schema, init_db, is_db_configured
+from app.song_categories_api import router as song_categories_router
 from app.songs_api import router as songs_router
 from app.verse_service import VerseServiceError, parse_verse, send_verse
 from app.presentations import (
@@ -105,6 +106,7 @@ app.add_middleware(
 )
 
 app.include_router(songs_router)
+app.include_router(song_categories_router)
 
 
 @app.get("/health")
