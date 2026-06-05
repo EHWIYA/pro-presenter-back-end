@@ -36,6 +36,7 @@ class Song(Base):
     title_normalized: Mapped[str] = mapped_column(Text, nullable=False)
     artist: Mapped[str | None] = mapped_column(Text, nullable=True)
     tags: Mapped[list] = mapped_column(JsonType, nullable=False, server_default="[]")
+    category: Mapped[str] = mapped_column(Text, nullable=False, server_default="praise")
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now()
     )
@@ -61,6 +62,11 @@ class Song(Base):
         Index(
             "idx_songs_title_normalized",
             "title_normalized",
+            postgresql_where=(deleted_at.is_(None)),
+        ),
+        Index(
+            "idx_songs_category",
+            "category",
             postgresql_where=(deleted_at.is_(None)),
         ),
     )

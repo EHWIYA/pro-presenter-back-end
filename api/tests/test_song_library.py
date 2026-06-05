@@ -37,6 +37,83 @@ def _create_song(client: TestClient, title: str = "테스트곡") -> str:
     return r.json()["songId"]
 
 
+def test_song_category_filter_and_default(client: TestClient):
+    r = client.post(
+        "/api/v1/songs",
+        json={
+            "title": "성가곡테스트",
+            "category": "hymn",
+            "sections": [{"type": "verse", "label": "1절", "lines": ["a"]}],
+        },
+    )
+    assert r.status_code == 201
+    hymn_id = r.json()["songId"]
+
+    r = client.post(
+        "/api/v1/songs",
+        json={
+            "title": "기본카테고리",
+            "sections": [{"type": "verse", "label": "1절", "lines": ["b"]}],
+        },
+    )
+    assert r.status_code == 201
+    default_id = r.json()["songId"]
+
+    assert client.get(f"/api/v1/songs/{default_id}").json()["category"] == "praise"
+    assert client.get(f"/api/v1/songs/{hymn_id}").json()["category"] == "hymn"
+
+    listed = client.get("/api/v1/songs", params={"category": "hymn"}).json()
+    ids = {item["songId"] for item in listed["items"]}
+    assert hymn_id in ids
+    assert default_id not in ids
+
+    bad = client.post(
+        "/api/v1/songs",
+        json={
+            "title": "잘못된카테고리",
+            "category": "invalid",
+            "sections": [{"type": "verse", "label": "1", "lines": ["x"]}],
+        },
+    )
+    assert bad.status_code == 422
+
+
+def test_put_sections_partial_and_empty_keeps(client: TestClient):
+    song_id = _create_song(client, "구간유지곡")
+    original = client.get(f"/api/v1/songs/{song_id}").json()["sections"]
+
+    r = client.put(
+        f"/api/v1/songs/{song_id}/sections",
+        json={"category": "special", "title": "특송곡"},
+    )
+    assert r.status_code == 200
+    data = r.json()
+    assert data["ok"] is True
+    assert data["category"] == "special"
+    assert data["title"] == "특송곡"
+    assert data["sections"] == original
+    assert data["sectionCount"] == len(original)
+
+    r2 = client.put(
+        f"/api/v1/songs/{song_id}/sections",
+        json={"sections": []},
+    )
+    assert r2.status_code == 200
+    assert r2.json()["sections"] == original
+
+    r3 = client.put(
+        f"/api/v1/songs/{song_id}/sections",
+        json={
+            "sections": [
+                {"type": "chorus", "label": "후렴", "lines": ["할렐루야"]},
+            ],
+        },
+    )
+    assert r3.status_code == 200
+    assert len(r3.json()["sections"]) == 1
+    assert r3.json()["sections"][0]["type"] == "chorus"
+
+
 def test_songs_crud(client: TestClient):
     song_id = _create_song(client)
 
@@ -84,6 +161,7 @@ def test_analyze_library_hit(mock_analyze, client: TestClient):
     assert r.status_code == 200
     data = r.json()
     assert data["source"] == "library"
+    assert data["category"] == "praise"
     assert data["schemaVersion"] == "song-sections/v1"
     mock_analyze.assert_not_awaited()
 

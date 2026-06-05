@@ -24,7 +24,7 @@ from app.song_library import (
     import_song_record,
     library_candidates_response,
     library_hit_response,
-    replace_sections,
+    update_song_sections,
     search_songs,
     soft_delete_song,
     update_song_meta,
@@ -46,6 +46,7 @@ class SongCreateRequest(BaseModel):
     title: str
     artist: str | None = None
     tags: list[str] = Field(default_factory=list)
+    category: str | None = None
     sections: list[SongSection]
 
 
@@ -53,10 +54,13 @@ class SongPatchRequest(BaseModel):
     title: str | None = None
     artist: str | None = None
     tags: list[str] | None = None
+    category: str | None = None
 
 
-class SongSectionsReplaceRequest(BaseModel):
-    sections: list[SongSection]
+class SongSectionsUpdateRequest(BaseModel):
+    sections: list[SongSection] | None = None
+    title: str | None = None
+    category: str | None = None
 
 
 class SongAnalyzeRequest(BaseModel):
@@ -157,12 +161,15 @@ async def list_songs(
     session: DbSession,
     settings: Settings = Depends(get_settings),
     q: str | None = Query(default=None),
+    category: str | None = Query(default=None),
     limit: int = Query(default=0, ge=0, le=100),
     offset: int = Query(default=0, ge=0),
 ) -> dict[str, Any]:
     eff_limit = limit or settings.song_library_default_limit
     try:
-        items, total = await search_songs(session, q=q, limit=eff_limit, offset=offset)
+        items, total = await search_songs(
+            session, q=q, category=category, limit=eff_limit, offset=offset
+        )
     except SongLibraryError as exc:
         raise _http_from_library(exc) from exc
     return {"items": items, "total": total}
@@ -184,6 +191,7 @@ async def post_song(session: DbSession, body: SongCreateRequest) -> dict[str, An
             title=body.title,
             artist=body.artist,
             tags=body.tags,
+            category=body.category,
             sections=[s.model_dump() for s in body.sections],
         )
     except SongLibraryError as exc:
@@ -202,6 +210,7 @@ async def patch_song(
             title=body.title,
             artist=body.artist,
             tags=body.tags,
+            category=body.category,
         )
     except SongLibraryError as exc:
         raise _http_from_library(exc) from exc
@@ -220,17 +229,24 @@ async def delete_song(session: DbSession, song_id: uuid.UUID) -> dict[str, Any]:
 
 @router.put("/api/v1/songs/{song_id}/sections")
 async def put_song_sections(
-    session: DbSession, song_id: uuid.UUID, body: SongSectionsReplaceRequest
+    session: DbSession, song_id: uuid.UUID, body: SongSectionsUpdateRequest
 ) -> dict[str, Any]:
+    sections = (
+        [s.model_dump() for s in body.sections] if body.sections is not None else None
+    )
     try:
-        ok = await replace_sections(
-            session, song_id, sections=[s.model_dump() for s in body.sections]
+        detail = await update_song_sections(
+            session,
+            song_id,
+            sections=sections,
+            title=body.title,
+            category=body.category,
         )
     except SongLibraryError as exc:
         raise _http_from_library(exc) from exc
-    if not ok:
+    if detail is None:
         raise HTTPException(status_code=404, detail="곡을 찾을 수 없습니다.")
-    return {"songId": str(song_id), "ok": True}
+    return {"ok": True, **detail}
 
 
 @router.post("/api/v1/song/analyze")

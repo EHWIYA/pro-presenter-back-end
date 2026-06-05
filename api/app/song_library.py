@@ -11,6 +11,19 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.models import SECTION_TYPES, Song, SongSection, SongSource
+from app.song_category import (
+    DEFAULT_CATEGORY,
+    SongCategoryError,
+    normalize_category,
+    validate_category,
+)
+
+
+def _coerce_category(value: str) -> str:
+    try:
+        return validate_category(value)
+    except SongCategoryError as exc:
+        raise SongLibraryError(str(exc), status_code=422) from exc
 from app.title_normalize import normalize_song_title
 
 
@@ -36,12 +49,17 @@ def _section_dict(section: SongSection) -> dict[str, Any]:
     return {"type": section.type, "label": section.label, "lines": section.lines}
 
 
+def _song_category(song: Song) -> str:
+    return song.category or DEFAULT_CATEGORY
+
+
 def _song_summary(song: Song) -> dict[str, Any]:
     return {
         "songId": str(song.id),
         "title": song.title,
         "artist": song.artist,
         "tags": song.tags or [],
+        "category": _song_category(song),
         "sectionCount": len(song.sections),
         "updatedAt": song.updated_at.isoformat(),
     }
@@ -51,6 +69,7 @@ async def search_songs(
     session: AsyncSession,
     *,
     q: str | None = None,
+    category: str | None = None,
     limit: int = 20,
     offset: int = 0,
 ) -> tuple[list[dict[str, Any]], int]:
@@ -59,6 +78,8 @@ async def search_songs(
         .options(selectinload(Song.sections))
         .where(Song.deleted_at.is_(None))
     )
+    if category is not None and category.strip():
+        base = base.where(Song.category == _coerce_category(category.strip()))
     if q and q.strip():
         q_norm = normalize_song_title(q)
         pattern = f"%{q.strip()}%"
@@ -89,7 +110,9 @@ async def get_song_detail(session: AsyncSession, song_id: uuid.UUID) -> dict[str
         "title": song.title,
         "artist": song.artist,
         "tags": song.tags or [],
+        "category": _song_category(song),
         "sections": [_section_dict(s) for s in song.sections],
+        "sectionCount": len(song.sections),
         "createdAt": song.created_at.isoformat(),
         "updatedAt": song.updated_at.isoformat(),
     }
@@ -117,6 +140,7 @@ async def create_song(
     artist: str | None,
     tags: list[str],
     sections: list[dict[str, Any]],
+    category: str | None = None,
 ) -> uuid.UUID:
     if not title.strip():
         raise SongLibraryError("title이 필요합니다.")
@@ -128,6 +152,11 @@ async def create_song(
         title_normalized=normalize_song_title(title),
         artist=artist,
         tags=tags,
+        category=(
+            _coerce_category(category)
+            if category is not None and str(category).strip()
+            else DEFAULT_CATEGORY
+        ),
         created_at=now,
         updated_at=now,
     )
@@ -145,6 +174,7 @@ async def update_song_meta(
     title: str | None = None,
     artist: str | None = None,
     tags: list[str] | None = None,
+    category: str | None = None,
 ) -> bool:
     song = await _get_active_song(session, song_id)
     if song is None:
@@ -156,6 +186,8 @@ async def update_song_meta(
         song.artist = artist
     if tags is not None:
         song.tags = tags
+    if category is not None:
+        song.category = _coerce_category(category)
     song.updated_at = datetime.now(UTC)
     await session.commit()
     return True
@@ -170,20 +202,33 @@ async def soft_delete_song(session: AsyncSession, song_id: uuid.UUID) -> bool:
     return True
 
 
-async def replace_sections(
+async def update_song_sections(
     session: AsyncSession,
     song_id: uuid.UUID,
-    sections: list[dict[str, Any]],
-) -> bool:
+    *,
+    sections: list[dict[str, Any]] | None = None,
+    title: str | None = None,
+    category: str | None = None,
+) -> dict[str, Any] | None:
+    """sections·title·category 부분 갱신. sections 생략·빈 배열이면 기존 구간 유지."""
     song = await _get_active_song(session, song_id, load_sections=True)
     if song is None:
-        return False
-    for sec in sections:
-        _validate_section(sec)
-    await _replace_sections_on_song(session, song, sections)
+        return None
+    if title is not None:
+        if not title.strip():
+            raise SongLibraryError("title이 비어 있을 수 없습니다.")
+        song.title = title.strip()
+        song.title_normalized = normalize_song_title(title)
+    if category is not None:
+        song.category = _coerce_category(category)
+    if sections:
+        for sec in sections:
+            _validate_section(sec)
+        await _replace_sections_on_song(session, song, sections)
     song.updated_at = datetime.now(UTC)
     await session.commit()
-    return True
+    session.expire_all()
+    return await get_song_detail(session, song_id)
 
 
 async def upsert_from_analyze(
@@ -324,6 +369,7 @@ def library_hit_response(song: Song) -> dict[str, Any]:
         "source": "library",
         "songId": str(song.id),
         "title": song.title,
+        "category": _song_category(song),
         "sections": [_section_dict(s) for s in song.sections],
         "schemaVersion": "song-sections/v1",
     }
