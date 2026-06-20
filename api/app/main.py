@@ -15,7 +15,9 @@ from pydantic import BaseModel, Field
 
 from app.bible import BibleStore, list_books
 from app.config import Settings, get_settings, resolve_bible_path
-from app.database import dispose_db, ensure_schema, init_db, is_db_configured
+from app.worship import WorshipError, worship_build, worship_trigger
+from app.worship_sessions import create_scripture_session
+from app.database import dispose_db, ensure_schema, get_db_session, init_db, is_db_configured
 from app.song_categories_api import router as song_categories_router
 from app.songs_api import router as songs_router
 from app.verse_service import VerseServiceError, parse_verse, send_verse
@@ -25,15 +27,17 @@ from app.presentations import (
     list_venue_presentations,
 )
 from app.venues import Venue, VenueError, VenueRegistry, probe_venue
-from app.worship import WorshipError, worship_build, worship_trigger
+from app.internal_api import router as internal_router
+from app.venues_v1_api import router as venues_v1_router
+from app.worship_sessions_api import router as worship_sessions_router
 
-API_VERSION = "1.1.0"
+API_VERSION = "1.2.0"
 logger = logging.getLogger(__name__)
 
 
 class VerseRequest(BaseModel):
     reference: str = Field(..., examples=["요 3:16"])
-    venue_id: str | None = Field(default=None, examples=["main"])
+    venue_id: str | None = Field(default=None, examples=["hwiya-pc"])
 
 
 class WorshipBuildRequest(BaseModel):
@@ -107,6 +111,9 @@ app.add_middleware(
 
 app.include_router(songs_router)
 app.include_router(song_categories_router)
+app.include_router(venues_v1_router)
+app.include_router(worship_sessions_router)
+app.include_router(internal_router)
 
 
 @app.get("/health")
@@ -144,7 +151,7 @@ async def venue_probe(
     return await probe_venue(
         venue,
         settings.pp_http_timeout_sec,
-        agent_timeout=settings.agent_http_timeout_sec,
+        agent_timeout=settings.agent_probe_timeout_sec,
         default_agent_port=settings.agent_port,
         settings=settings,
     )
@@ -155,10 +162,29 @@ async def venues_status(
     settings: Settings = Depends(get_settings),
 ) -> dict[str, Any]:
     venues = [v for v in _get_venues().all() if v.enabled]
-    probes = await asyncio.gather(
-        *(_probe_venue_safe(venue, settings.pp_http_timeout_sec) for venue in venues)
-    )
-    return {"venues": probes}
+    wall = settings.venues_status_wall_timeout_sec
+    try:
+        probes = await asyncio.wait_for(
+            asyncio.gather(*(_probe_venue_safe(venue, settings) for venue in venues)),
+            timeout=wall,
+        )
+    except TimeoutError:
+        logger.warning("venues/status wall timeout exceeded (%.1fs)", wall)
+        probes = [
+            {
+                "connected": False,
+                "venue_id": venue.id,
+                "name": venue.name,
+                "status_code": "wall_timeout",
+                "message": f"전체 상태 점검 시간 초과 ({wall:.0f}s)",
+                "agent_reachable": False,
+                "agent_status_code": "wall_timeout",
+                "agent_message": "전체 상태 점검 시간 초과",
+                "checked_at": datetime.now(UTC).isoformat(),
+            }
+            for venue in venues
+        ]
+    return {"venues": list(probes)}
 
 
 @app.get("/venues/{venue_id}/presentations")
@@ -191,18 +217,30 @@ async def venue_current_presentation(
         raise _http_from_presentations(exc) from exc
 
 
-@app.post("/venues/{venue_id}/worship/build")
+@app.post("/venues/{venue_id}/worship/build", deprecated=True)
 async def venue_worship_build(
     venue_id: str,
     body: WorshipBuildRequest,
     settings: Settings = Depends(get_settings),
 ) -> dict[str, Any]:
+    """하위 호환 — `POST /api/v1/venues/{id}/worship/sessions` 권장."""
     try:
         venue = _get_venues().get(venue_id)
     except VenueError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
     try:
-        return await worship_build(venue, settings, body.text)
+        result = await worship_build(venue, settings, body.text)
+        if is_db_configured():
+            reference = result.get("reference") or body.text.strip().splitlines()[0].strip()
+            async for session in get_db_session():
+                _, enriched = await create_scripture_session(
+                    session,
+                    venue_id,
+                    reference=str(reference),
+                    agent_result=result,
+                )
+                return enriched
+        return result
     except WorshipError as exc:
         raise _http_from_worship(exc) from exc
 
@@ -231,8 +269,9 @@ async def verse_parse(body: VerseRequest) -> dict[str, Any]:
         raise _http_from_service(exc) from exc
 
 
-@app.post("/api/v1/verse/send", dependencies=[Depends(_require_api_key)])
+@app.post("/api/v1/verse/send", dependencies=[Depends(_require_api_key)], deprecated=True)
 async def verse_send(body: VerseRequest) -> dict[str, Any]:
+    """레거시 — 신규 UI에서 사용 금지. worship sessions + trigger 사용."""
     if not body.venue_id:
         raise HTTPException(status_code=400, detail="venue_id가 필요합니다.")
     try:
@@ -276,14 +315,13 @@ def _http_from_presentations(exc: PresentationsError) -> HTTPException:
     return HTTPException(status_code=exc.status_code, detail=detail)
 
 
-async def _probe_venue_safe(venue: Venue, timeout_sec: float) -> dict[str, Any]:
+async def _probe_venue_safe(venue: Venue, settings: Settings) -> dict[str, Any]:
     started = time.monotonic()
     try:
-        settings = get_settings()
         result = await probe_venue(
             venue,
-            timeout_sec,
-            agent_timeout=settings.agent_http_timeout_sec,
+            settings.pp_http_timeout_sec,
+            agent_timeout=settings.agent_probe_timeout_sec,
             default_agent_port=settings.agent_port,
             settings=settings,
         )

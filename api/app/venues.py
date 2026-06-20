@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import json
 from dataclasses import dataclass
 from datetime import UTC, datetime
@@ -33,6 +34,7 @@ class Venue:
     pp_library_name: str | None = None
     pp_presentation_id: str | None = None
     pp_message_id: str | None = None
+    agent_key: str | None = None
 
     @property
     def base_url(self) -> str:
@@ -65,6 +67,7 @@ def load_venues(path: Path) -> list[Venue]:
                 pp_library_name=item.get("pp_library_name"),
                 pp_presentation_id=item.get("pp_presentation_id") or item.get("pp_presentation_uuid"),
                 pp_message_id=item.get("pp_message_id"),
+                agent_key=item.get("agent_key"),
             )
         )
     return venues
@@ -139,29 +142,15 @@ async def _probe_library_fields(
         }
 
 
-async def probe_venue(
-    venue: Venue,
+async def _probe_agent_health(
+    agent_health_url: str,
     timeout: float,
-    *,
-    agent_timeout: float,
-    default_agent_port: int,
-    settings: Settings | None = None,
-) -> dict[str, Any]:
-    url = f"{venue.base_url}/v1/presentation/current"
-    if venue.agent_base_url:
-        agent_base = venue.agent_base_url.rstrip("/")
-    else:
-        agent_port = venue.agent_port if venue.agent_port is not None else default_agent_port
-        agent_base = f"http://{venue.tailscale_ip}:{agent_port}"
-    agent_health_url = f"{agent_base}/health"
-    checked_at = datetime.now(UTC).isoformat()
-
+) -> tuple[bool, str, str]:
     agent_reachable = False
     agent_status_code = "unknown"
     agent_message = "에이전트 상태를 확인하지 못했습니다."
-
     try:
-        async with httpx.AsyncClient(timeout=agent_timeout) as client:
+        async with httpx.AsyncClient(timeout=timeout) as client:
             agent_response = await client.get(agent_health_url)
         if agent_response.status_code == 200:
             agent_reachable = True
@@ -179,51 +168,37 @@ async def probe_venue(
     except httpx.HTTPError as exc:
         agent_status_code = "http_error"
         agent_message = f"에이전트 통신 오류: {exc}"
+    return agent_reachable, agent_status_code, agent_message
 
+
+async def _probe_pp_current(
+    url: str,
+    timeout: float,
+    venue: Venue,
+) -> dict[str, Any]:
     try:
         async with httpx.AsyncClient(timeout=timeout) as client:
             response = await client.get(url)
     except httpx.ConnectError:
         return {
             "connected": False,
-            "venue_id": venue.id,
-            "name": venue.name,
-            "url": url,
             "status_code": "connect_error",
             "message": "Tailscale 연결 불가 또는 ProPresenter가 꺼져 있습니다.",
-            "agent_reachable": agent_reachable,
-            "agent_status_code": agent_status_code,
-            "agent_message": agent_message,
-            "agent_health_url": agent_health_url,
-            "checked_at": checked_at,
+            "http_status": None,
         }
     except httpx.TimeoutException:
         return {
             "connected": False,
-            "venue_id": venue.id,
-            "name": venue.name,
-            "url": url,
             "status_code": "timeout",
             "message": "요청 시간 초과 - 방화벽 또는 ProPresenter API 미응답",
-            "agent_reachable": agent_reachable,
-            "agent_status_code": agent_status_code,
-            "agent_message": agent_message,
-            "agent_health_url": agent_health_url,
-            "checked_at": checked_at,
+            "http_status": None,
         }
     except httpx.HTTPError as exc:
         return {
             "connected": False,
-            "venue_id": venue.id,
-            "name": venue.name,
-            "url": url,
             "status_code": "http_error",
             "message": f"HTTP 통신 오류: {exc}",
-            "agent_reachable": agent_reachable,
-            "agent_status_code": agent_status_code,
-            "agent_message": agent_message,
-            "agent_health_url": agent_health_url,
-            "checked_at": checked_at,
+            "http_status": None,
         }
 
     connected = response.status_code == 200
@@ -235,16 +210,49 @@ async def probe_venue(
             message = "ProPresenter API가 일시적으로 응답하지 않습니다."
         else:
             status_code = "http_status_error"
-            message = f"HTTP {response.status_code} - 포트({venue.pp_port}) 또는 API 경로를 확인하세요."
+            message = (
+                f"HTTP {response.status_code} - 포트({venue.pp_port}) 또는 API 경로를 확인하세요."
+            )
+    return {
+        "connected": connected,
+        "status_code": status_code,
+        "message": message,
+        "http_status": response.status_code,
+    }
 
+
+async def probe_venue(
+    venue: Venue,
+    timeout: float,
+    *,
+    agent_timeout: float,
+    default_agent_port: int,
+    settings: Settings | None = None,
+) -> dict[str, Any]:
+    url = f"{venue.base_url}/v1/presentation/current"
+    if venue.agent_base_url:
+        agent_base = venue.agent_base_url.rstrip("/")
+    else:
+        agent_port = venue.agent_port if venue.agent_port is not None else default_agent_port
+        agent_base = f"http://{venue.tailscale_ip}:{agent_port}"
+    agent_health_url = f"{agent_base}/health"
+    checked_at = datetime.now(UTC).isoformat()
+
+    agent_task = asyncio.create_task(_probe_agent_health(agent_health_url, agent_timeout))
+    pp_task = asyncio.create_task(_probe_pp_current(url, timeout, venue))
+    (agent_reachable, agent_status_code, agent_message), pp_result = await asyncio.gather(
+        agent_task, pp_task
+    )
+
+    connected = bool(pp_result.get("connected"))
     payload: dict[str, Any] = {
         "connected": connected,
         "venue_id": venue.id,
         "name": venue.name,
         "url": url,
-        "status_code": status_code,
-        "http_status": response.status_code,
-        "message": message,
+        "status_code": pp_result.get("status_code", "unknown"),
+        "http_status": pp_result.get("http_status"),
+        "message": pp_result.get("message", ""),
         "agent_reachable": agent_reachable,
         "agent_status_code": agent_status_code,
         "agent_message": agent_message,

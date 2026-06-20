@@ -46,6 +46,16 @@ class Settings(BaseSettings):
     )
     agent_build_mode: str = Field(default="append", validation_alias="AGENT_BUILD_MODE")
     agent_auto_trigger: bool = Field(default=False, validation_alias="AGENT_AUTO_TRIGGER")
+    agent_probe_timeout_sec: float = Field(
+        default=3.0, validation_alias="AGENT_PROBE_TIMEOUT_SEC"
+    )
+    agent_heartbeat_key: str | None = Field(
+        default=None, validation_alias="AGENT_HEARTBEAT_KEY"
+    )
+    venues_status_wall_timeout_sec: float = Field(
+        default=15.0, validation_alias="VENUES_STATUS_WALL_TIMEOUT_SEC"
+    )
+    runtime_stale_sec: float = Field(default=120.0, validation_alias="RUNTIME_STALE_SEC")
 
     llm_gateway_url: str | None = Field(
         default="https://llm-api.livbee.co.kr",
@@ -94,6 +104,7 @@ class Settings(BaseSettings):
 
     @field_validator(
         "api_key",
+        "agent_heartbeat_key",
         "pp_theme_id",
         "pp_theme_slide_id",
         "llm_gateway_url",

@@ -39,14 +39,14 @@ def test_venues_list():
     with TestClient(app) as client:
         r = client.get("/venues")
         assert r.status_code == 200
-        assert any(v["id"] == "main" for v in r.json()["venues"])
+        assert any(v["id"] == "hwiya-pc" for v in r.json()["venues"])
 
 
 @patch("app.main.probe_venue", new_callable=AsyncMock)
 def test_venues_status(mock_probe):
     mock_probe.side_effect = [
         {
-            "venue_id": "main",
+            "venue_id": "hwiya-pc",
             "name": "Main Hall",
             "connected": True,
             "status_code": "ok",

@@ -20,11 +20,11 @@
 
 ```bash
 # 1) ops/bin 동기화 (개발 PC, 1회 또는 bin 변경 시)
-NAS_SSH=iwh@100.88.40.125 NAS_DEPLOY_PATH=/home/iwh/pro-presenter/api \
+NAS_SSH=iwh@100.88.40.125 NAS_DEPLOY_PATH=/home/iwh/pro-presenter/live \
   ./ops/bin/install-live-remote.sh
 
 # 2) 성경 전체 (NAS에서, python3+curl)
-cd /home/iwh/pro-presenter/api/ops
+cd /home/iwh/pro-presenter/live
 ./bin/fetch-bible-krv.sh
 
 # 3) GHCR 배포 (GHA 성공 후 또는 수동)
@@ -38,7 +38,7 @@ curl -s http://127.0.0.1:8003/health
 **또는** 개발 PC에서 성경 파일만 전송:
 
 ```bash
-scp api/data/bible-krv.json iwh@100.88.40.125:/home/iwh/pro-presenter/api/ops/data/
+scp api/data/bible-krv.json iwh@100.88.40.125:/home/iwh/pro-presenter/live/data/
 ```
 
 (로컬에서 `api/scripts/build_bible_json.py` 로 생성 — git에는 포함하지 않음)
@@ -64,5 +64,5 @@ scp api/data/bible-krv.json iwh@100.88.40.125:/home/iwh/pro-presenter/api/ops/da
 | Secret | 값 |
 |--------|-----|
 | `NAS_HOST` | `100.88.40.125` |
-| `NAS_DEPLOY_PATH` | `/home/iwh/pro-presenter/api` |
+| `NAS_DEPLOY_PATH` | `/home/iwh/pro-presenter/live` |
 | `NAS_USER` | `iwh` |

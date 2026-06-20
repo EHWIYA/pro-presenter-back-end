@@ -36,7 +36,7 @@ def test_worship_build_endpoint(mock_post):
     }
     with TestClient(app) as client:
         r = client.post(
-            "/venues/main/worship/build",
+            "/venues/hwiya-pc/worship/build",
             json={"text": "마 3:1"},
         )
     assert r.status_code == 200
@@ -50,7 +50,7 @@ def test_worship_trigger_endpoint(mock_post):
     mock_post.return_value = {"ok": True, "message": "triggered"}
     with TestClient(app) as client:
         r = client.post(
-            "/venues/main/worship/trigger",
+            "/venues/hwiya-pc/worship/trigger",
             json={"index": 33},
         )
     assert r.status_code == 200
@@ -71,7 +71,7 @@ def test_worship_build_unknown_venue():
 def test_worship_build_empty_text():
     with TestClient(app) as client:
         r = client.post(
-            "/venues/main/worship/build",
+            "/venues/hwiya-pc/worship/build",
             json={"text": "   \n  "},
         )
     assert r.status_code == 400

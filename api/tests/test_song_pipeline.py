@@ -74,7 +74,7 @@ def test_worship_build_song_endpoint(mock_post):
         r = client.post(
             "/api/v1/worship/build-song",
             json={
-                "venueId": "main",
+                "venueId": "hwiya-pc",
                 "songTitle": "주님의 마음",
                 "buildMode": "append",
                 "sections": [

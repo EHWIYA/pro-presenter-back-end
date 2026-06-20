@@ -38,7 +38,7 @@ jobs:
           script: |
             DEPLOY_ROOT="${{ secrets.NAS_DEPLOY_PATH || '' }}"
             if [ -z "${DEPLOY_ROOT}" ] || [[ "${DEPLOY_ROOT}" == *"*"* ]]; then
-              DEPLOY_ROOT="/home/iwh/pro-presenter/api"
+              DEPLOY_ROOT="/home/iwh/pro-presenter/live"
             fi
             IMAGE="${{ env.GHCR_IMAGE }}:${{ github.event_name == 'workflow_dispatch' && github.event.inputs.image_tag || 'main' }}"
             pwd

@@ -46,7 +46,7 @@ NAS에서 `curl http://127.0.0.1:8003/health` 가 맞습니다. 이미지 내부
 | `NAS_HOST` | 기존 | Tailscale IP (예: `100.88.40.125`) |
 | `NAS_USER` | 기존 | SSH 사용자 |
 | `NAS_SSH_KEY` | 기존 | deploy용 private key |
-| `NAS_DEPLOY_PATH` | 기존 | `/home/iwh/pro-presenter/api` |
+| `NAS_DEPLOY_PATH` | 기존 | `/home/iwh/pro-presenter/live` |
 | `NAS_SSH_PORT` | 선택 | 기본 22 |
 
 Secrets 등록 후 **Actions → Deploy NAS → Run workflow** 로 검증.
@@ -58,7 +58,7 @@ Secrets 등록 후 **Actions → Deploy NAS → Run workflow** 로 검증.
 - `/health` 정상: `ops/data/bible-krv.json` 실데이터 필요
 
 ```bash
-cd /home/iwh/pro-presenter/api/ops
+cd /home/iwh/pro-presenter/live
 ./bin/fetch-bible-krv.sh
 ./bin/deploy.sh ghcr.io/ehwiya/pro-presenter-back-end:main
 curl -s http://127.0.0.1:8003/health | jq .

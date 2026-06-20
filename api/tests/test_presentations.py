@@ -50,8 +50,8 @@ def test_current_preview_summary():
             "currentSlideText": "말씀 봉독",
         }
     }
-    out = _current_preview_summary("main", body)
-    assert out["venue_id"] == "main"
+    out = _current_preview_summary("hwiya-pc", body)
+    assert out["venue_id"] == "hwiya-pc"
     assert out["presentation_id"] == "pres-current-1"
     assert out["label"] == "주일예배"
     assert out["current_slide_index"] == 4
@@ -62,7 +62,7 @@ def test_current_preview_summary():
 @patch("app.main.list_venue_presentations", new_callable=AsyncMock)
 def test_presentations_endpoint(mock_list):
     mock_list.return_value = {
-        "venue_id": "main",
+        "venue_id": "hwiya-pc",
         "presentations": [
             {
                 "id": "69796aa8-6b79-4688-b266-467e79bb3bde",
@@ -74,10 +74,10 @@ def test_presentations_endpoint(mock_list):
         ],
     }
     with TestClient(app) as client:
-        r = client.get("/venues/main/presentations")
+        r = client.get("/venues/hwiya-pc/presentations")
     assert r.status_code == 200
     data = r.json()
-    assert data["venue_id"] == "main"
+    assert data["venue_id"] == "hwiya-pc"
     assert len(data["presentations"]) == 1
     assert data["presentations"][0]["slide_count"] == 5
 
@@ -91,7 +91,7 @@ def test_presentations_unknown_venue():
 @patch("app.main.get_current_presentation_preview", new_callable=AsyncMock)
 def test_current_presentation_endpoint(mock_current):
     mock_current.return_value = {
-        "venue_id": "main",
+        "venue_id": "hwiya-pc",
         "presentation_id": "pres-current-1",
         "label": "주일예배",
         "current_slide_index": 2,
@@ -99,7 +99,7 @@ def test_current_presentation_endpoint(mock_current):
         "updated_at": "2026-01-01T00:00:00+00:00",
     }
     with TestClient(app) as client:
-        r = client.get("/venues/main/presentation/current")
+        r = client.get("/venues/hwiya-pc/presentation/current")
     assert r.status_code == 200
     data = r.json()
     assert data["presentation_id"] == "pres-current-1"

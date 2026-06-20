@@ -242,7 +242,7 @@ def test_build_song_by_song_id(mock_post, client: TestClient):
 
     r = client.post(
         "/api/v1/worship/build-song",
-        json={"venueId": "main", "songId": song_id, "buildMode": "replace"},
+        json={"venueId": "hwiya-pc", "songId": song_id, "buildMode": "replace"},
     )
     assert r.status_code == 200
     assert r.json()["sourceSongId"] == song_id
@@ -257,7 +257,7 @@ def test_build_song_xor_validation(client: TestClient):
     r = client.post(
         "/api/v1/worship/build-song",
         json={
-            "venueId": "main",
+            "venueId": "hwiya-pc",
             "songId": song_id,
             "songTitle": "x",
             "sections": [{"type": "verse", "label": "1", "lines": ["a"]}],

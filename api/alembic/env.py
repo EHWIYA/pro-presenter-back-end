@@ -12,7 +12,7 @@ from sqlalchemy.engine import Connection
 from sqlalchemy.ext.asyncio import async_engine_from_config
 
 from app.database import Base
-from app.models import Song, SongSection, SongSource  # noqa: F401
+from app.models import Song, SongSection, SongSource, VenueRuntime, WorshipSession  # noqa: F401
 
 config = context.config
 if config.config_file_name is not None:

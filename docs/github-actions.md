@@ -44,11 +44,11 @@ $env:GITHUB_TOKEN = "ghp_..."   # repo Actions read 권한, 커밋 금지
 
 ```bash
 # 개발 PC에서 (api/bin·compose 전송)
-NAS_SSH=iwh@100.x.x.x NAS_DEPLOY_PATH=/home/iwh/pro-presenter/api \
+NAS_SSH=iwh@100.x.x.x NAS_DEPLOY_PATH=/home/iwh/pro-presenter/live \
   ./ops/bin/install-live-remote.sh
 
 # NAS에서
-cd /home/iwh/pro-presenter/api
+cd /home/iwh/pro-presenter/live
 ./bin/setup-nas.sh
 # .env, venues.json, data/bible-krv.json 편집
 ```
@@ -71,7 +71,7 @@ cd /home/iwh/pro-presenter/api
 | `NAS_HOST` | ✅ | 서버 |
 | `NAS_USER` | ✅ | 서버 |
 | `NAS_SSH_KEY` | ✅ | 서버 |
-| `NAS_DEPLOY_PATH` | 기본 `/home/iwh/pro-presenter/api` | 서버 |
+| `NAS_DEPLOY_PATH` | 기본 `/home/iwh/pro-presenter/live` | 서버 |
 | `NAS_SSH_PORT` | 선택 | 서버 |
 
 설정 절차: **`docs/GHA-DEPLOY-B2.md`**
