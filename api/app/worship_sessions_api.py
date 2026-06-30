@@ -57,8 +57,12 @@ async def create_worship_session(
 
     try:
         reference = _resolve_reference(body)
-        text = body.text or reference
-        agent_result = await worship_build(venue, settings, text)
+        agent_result = await worship_build(
+            venue,
+            settings,
+            reference=body.reference,
+            text=body.text,
+        )
     except WorshipError as exc:
         detail: dict[str, Any] = {"message": str(exc)}
         if exc.hint:

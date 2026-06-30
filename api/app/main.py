@@ -9,9 +9,9 @@ from contextlib import asynccontextmanager
 from datetime import UTC, datetime
 from typing import Any
 
-from fastapi import Depends, FastAPI, Header, HTTPException
+from fastapi import Depends, FastAPI, Header, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 from app.bible import BibleStore, list_books
 from app.config import Settings, get_settings, resolve_bible_path
@@ -40,8 +40,24 @@ class VerseRequest(BaseModel):
     venue_id: str | None = Field(default=None, examples=["hwiya-pc"])
 
 
-class WorshipBuildRequest(BaseModel):
-    text: str = Field(..., examples=["마 3:1-10\n마 3:2"])
+class VenueBuildRequest(BaseModel):
+    reference: str | None = Field(default=None, examples=["마 3:1-10"])
+    text: str | None = Field(default=None, examples=["마 3:1-10\n마 3:2"])
+    auto_trigger: bool = Field(default=False)
+    build_mode: str | None = Field(default=None, examples=["append"])
+    group_theme_key: str | None = Field(default=None, examples=["reader-context"])
+
+    @model_validator(mode="after")
+    def require_reference_or_text(self) -> VenueBuildRequest:
+        has_reference = bool(self.reference and self.reference.strip())
+        has_text = self.text is not None and bool(self.text.strip())
+        if not has_reference and not has_text:
+            raise ValueError("reference 또는 text 중 하나가 필요합니다.")
+        return self
+
+
+# 레거시 worship 경로 — VenueBuildRequest와 동일 스키마
+WorshipBuildRequest = VenueBuildRequest
 
 
 class WorshipTriggerRequest(BaseModel):
@@ -217,10 +233,11 @@ async def venue_current_presentation(
         raise _http_from_presentations(exc) from exc
 
 
+@app.post("/api/v1/venues/{venue_id}/build")
 @app.post("/venues/{venue_id}/worship/build", deprecated=True)
 async def venue_worship_build(
     venue_id: str,
-    body: WorshipBuildRequest,
+    body: VenueBuildRequest,
     settings: Settings = Depends(get_settings),
 ) -> dict[str, Any]:
     """하위 호환 — `POST /api/v1/venues/{id}/worship/sessions` 권장."""
@@ -229,9 +246,23 @@ async def venue_worship_build(
     except VenueError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
     try:
-        result = await worship_build(venue, settings, body.text)
+        result = await worship_build(
+            venue,
+            settings,
+            reference=body.reference,
+            text=body.text,
+            auto_trigger=body.auto_trigger,
+            build_mode=body.build_mode,
+            group_theme_key=body.group_theme_key,
+        )
         if is_db_configured():
-            reference = result.get("reference") or body.text.strip().splitlines()[0].strip()
+            reference = result.get("reference")
+            if not reference:
+                from app.worship import resolve_build_reference
+
+                reference = resolve_build_reference(
+                    reference=body.reference, text=body.text
+                )
             async for session in get_db_session():
                 _, enriched = await create_scripture_session(
                     session,
@@ -245,18 +276,23 @@ async def venue_worship_build(
         raise _http_from_worship(exc) from exc
 
 
+@app.post("/api/v1/venues/{venue_id}/trigger")
 @app.post("/venues/{venue_id}/worship/trigger")
 async def venue_worship_trigger(
     venue_id: str,
-    body: WorshipTriggerRequest,
     settings: Settings = Depends(get_settings),
+    index: int | None = Query(default=None, description="송출할 slide_map index"),
+    body: WorshipTriggerRequest | None = None,
 ) -> dict[str, Any]:
+    resolved_index = index if index is not None else (body.index if body is not None else None)
+    if resolved_index is None:
+        raise HTTPException(status_code=400, detail="index가 필요합니다.")
     try:
         venue = _get_venues().get(venue_id)
     except VenueError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
     try:
-        return await worship_trigger(venue, settings, body.index)
+        return await worship_trigger(venue, settings, resolved_index)
     except WorshipError as exc:
         raise _http_from_worship(exc) from exc
 

@@ -74,13 +74,30 @@ def build_song_agent_body(
     return body
 
 
-def build_agent_body(reference: str, settings: Settings) -> dict[str, Any]:
+def build_agent_body(
+    reference: str,
+    settings: Settings,
+    *,
+    auto_trigger: bool | None = None,
+    build_mode: str | None = None,
+    group_theme_key: str | None = None,
+) -> dict[str, Any]:
     return {
         "reference": reference,
-        "group_theme_key": settings.agent_group_theme_key,
-        "build_mode": settings.agent_build_mode,
-        "auto_trigger": settings.agent_auto_trigger,
+        "group_theme_key": group_theme_key or settings.agent_group_theme_key,
+        "build_mode": build_mode or settings.agent_build_mode,
+        "auto_trigger": settings.agent_auto_trigger if auto_trigger is None else auto_trigger,
+        "library_category": settings.agent_library_category,
     }
+
+
+def resolve_build_reference(*, reference: str | None, text: str | None) -> str:
+    """PWA `reference` 또는 레거시 `text` → 에이전트 reference."""
+    if reference and reference.strip():
+        return reference.strip()
+    if text is not None:
+        return text_to_reference(text)
+    raise WorshipError("reference 또는 text가 필요합니다.", status_code=400)
 
 
 async def _agent_post(
@@ -148,13 +165,24 @@ def _response_detail(response: httpx.Response) -> str:
 async def worship_build(
     venue: Venue,
     settings: Settings,
-    text: str,
+    *,
+    reference: str | None = None,
+    text: str | None = None,
+    auto_trigger: bool | None = None,
+    build_mode: str | None = None,
+    group_theme_key: str | None = None,
 ) -> dict[str, Any]:
-    reference = text_to_reference(text)
-    body = build_agent_body(reference, settings)
+    resolved = resolve_build_reference(reference=reference, text=text)
+    body = build_agent_body(
+        resolved,
+        settings,
+        auto_trigger=auto_trigger,
+        build_mode=build_mode,
+        group_theme_key=group_theme_key,
+    )
     result = await _agent_post(venue, settings, "/build", json_body=body)
     if "reference" not in result:
-        result = {**result, "reference": reference}
+        result = {**result, "reference": resolved}
     return result
 
 

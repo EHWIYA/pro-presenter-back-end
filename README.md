@@ -1,6 +1,8 @@
-# ProPresenter 원격 방송 — 백엔드 (1단계 MVP)
+# ProPresenter 원격 방송 — 백엔드 (NAS BFF)
 
-NAS에서 Tailscale로 현장 PC의 **ProPresenter API**에 접속해, 성경 구절을 파싱·2줄로 나눈 뒤 화면에 송출하는 **FastAPI** 서버입니다.
+NAS에서 Tailscale로 현장 PC의 **ProPresenter Agent**(`:8787`) 및 **PP API**(`:12135`)에 접속합니다. 성경·찬양 데이터를 파싱·저장하고, 슬라이드 **빌드·송출은 에이전트에 프록시**합니다 (BFF는 `.pro`를 만들지 않음).
+
+담당자 전달: [`docs/BACKEND-HANDOFF.md`](docs/BACKEND-HANDOFF.md)
 
 ## 디렉터리 구조
 
@@ -12,8 +14,14 @@ pro-presenter-back-end/
 │   │   ├── bible.py
 │   │   ├── split.py
 │   │   ├── venues.py
+│   │   ├── worship.py          # 에이전트 build/trigger 프록시
+│   │   ├── presentations.py
+│   │   ├── library_resolve.py
+│   │   ├── songs_api.py          # 곡 DB·analyze·build-song
+│   │   ├── song_library.py
+│   │   ├── song_gateway.py
 │   │   ├── propresenter.py
-│   │   └── verse_service.py
+│   │   └── verse_service.py    # 레거시 PP 직접 송출
 │   ├── data/
 │   │   ├── bible-krv.sample.json   # 샘플 (repo)
 │   │   └── bible-krv.json          # 전체 성경 (git 제외, NAS·로컬)
@@ -43,21 +51,41 @@ curl -s http://127.0.0.1:8003/venues
 curl -s http://127.0.0.1:8003/venues/main/probe
 ```
 
-## API (MVP)
+## API
+
+### 현장·성경 (PWA 주 경로)
 
 | 메서드 | 경로 | 설명 |
 |--------|------|------|
-| GET | `/health` | 서버 상태·성경 로드 절 수 |
+| GET | `/health` | 서버 상태·성경 로드 절 수·곡 DB 연결 |
 | GET | `/api/v1/books` | 지원 성경 66권 목록 |
 | GET | `/venues` | 현장 목록 |
-| GET | `/venues/{id}/probe` | NAS → PP 연결 테스트 |
+| GET | `/venues/{id}/probe` | NAS → PP·에이전트 연결 테스트 |
 | GET | `/venues/status` | 활성 현장 일괄 probe (PWA 미니제어 상태판) |
 | GET | `/venues/{id}/presentations` | PWA 홈 — PP 라이브러리 프레젠테이션·그룹·슬라이드 수 ([`docs/api-presentations.md`](docs/api-presentations.md)) |
 | GET | `/venues/{id}/presentation/current` | PWA 미니제어 — 현재 프레젠테이션/슬라이드 미리보기 |
-| POST | `/venues/{id}/worship/build` | PWA → 에이전트 빌드 프록시 (`text` → `reference`) |
-| POST | `/venues/{id}/worship/trigger` | PWA → 에이전트 슬라이드 송출 (`index`) |
-| POST | `/api/v1/verse/parse` | 참조 파싱 + 2줄 분할 (레거시) |
-| POST | `/api/v1/verse/send` | 파싱 후 PP 송출 (레거시, `venue_id` 필수) |
+| POST | `/api/v1/venues/{id}/build` | PWA `reference` → 에이전트 빌드 (`auto_trigger` 기본 false) |
+| POST | `/api/v1/venues/{id}/trigger?index=N` | 에이전트 슬라이드 송출 |
+| POST | `/venues/{id}/worship/build` | 위와 동일 (호환 — `text` 필드 지원) |
+| POST | `/venues/{id}/worship/trigger` | 위와 동일 (호환 — body `index`) |
+
+### 찬양·곡 라이브러리
+
+| 메서드 | 경로 | 설명 |
+|--------|------|------|
+| POST | `/api/v1/song/analyze` | 악보·가사 → LLM 게이트웨이 프록시 ([`docs/api-song-analyze.md`](docs/api-song-analyze.md)) |
+| GET | `/api/v1/song/jobs/{jobId}` | analyze job 폴링 |
+| GET/POST/PATCH/DELETE | `/api/v1/songs` | 곡 CRUD ([`docs/api-song-library.md`](docs/api-song-library.md)) |
+| PUT | `/api/v1/songs/{id}/sections` | sections 전체 교체 |
+| POST | `/api/v1/worship/build-song` | 찬양 sections/songId → 에이전트 `build-song` |
+| GET/POST/PATCH/DELETE | `/api/v1/song-categories` | custom category 마스터 |
+
+### 레거시 (PP 직접 송출)
+
+| 메서드 | 경로 | 설명 |
+|--------|------|------|
+| POST | `/api/v1/verse/parse` | 참조 파싱 + 2줄 분할 |
+| POST | `/api/v1/verse/send` | 파싱 후 PP 송출 (`venue_id` 필수) |
 
 ### Probe/Status 응답 계약
 
@@ -107,8 +135,11 @@ curl -s -X POST http://127.0.0.1:8003/api/v1/verse/send \
 | `PP_SEND_METHOD` | `theme` (기본) 또는 `message` |
 | `PP_THEME_ID` / `PP_THEME_SLIDE_ID` | 테마 슬라이드 PUT |
 | `PP_LIBRARY_ID` / `PP_PRESENTATION_ID` | 송출 후 library trigger |
-| `PP_MESSAGE_ID` | message 방식일 때 |
-| `API_KEY` | 설정 시 `X-API-Key` 헤더 필요 |
+| `PP_LIBRARY_NAME_DEFAULT` | 라이브러리 이름 fallback (기본 `worship-2`) |
+| `AGENT_PORT` / `AGENT_*` | 에이전트 프록시 (`build_mode`, `auto_trigger`, `library_category` 등) |
+| `DATABASE_URL` | Postgres 곡 라이브러리 (NAS compose `:5434`) |
+| `LLM_GATEWAY_URL` / `LLM_GATEWAY_API_KEY` | 찬양 악보 analyze |
+| `API_KEY` | 설정 시 `X-API-Key` — 현재 **레거시 `verse/*`·admin import**만 적용 (worship·songs는 P1) |
 | `CORS_ORIGINS` | PWA 도메인 (콤마 구분) |
 
 현장별 UUID는 `ops/venues.json` 각 venue 객체에 넣을 수 있습니다 (`.env`보다 우선).
@@ -210,9 +241,10 @@ NAS 최초: [`ops/bin/install-live-remote.sh`](ops/bin/install-live-remote.sh) �
 
 ## 팀 확인 사항 (결정 기록)
 
-| 항목 | 1단계 결정 |
-|------|------------|
-| 송출 | 기본 `theme`, `message` 선택 가능 |
-| DB | 미사용 |
-| 인증 | `API_KEY` 비우면 공개 |
+| 항목 | 결정 |
+|------|------|
+| 송출 (레거시) | 기본 `theme`, `message` 선택 가능 |
+| 곡 DB | Postgres + Alembic (`DATABASE_URL`) |
+| 빌드·송출 | worship → 에이전트 프록시, `auto_trigger` 기본 false |
+| 인증 | `API_KEY` 비우면 공개; worship/songs 키 적용은 P1 |
 | 송출 이력 | `SEND_LOG_PATH` JSONL (선택) |

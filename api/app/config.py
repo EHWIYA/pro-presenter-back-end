@@ -56,6 +56,10 @@ class Settings(BaseSettings):
         default=15.0, validation_alias="VENUES_STATUS_WALL_TIMEOUT_SEC"
     )
     runtime_stale_sec: float = Field(default=120.0, validation_alias="RUNTIME_STALE_SEC")
+    agent_library_category: str = Field(
+        default="말씀",
+        validation_alias="AGENT_LIBRARY_CATEGORY",
+    )
 
     llm_gateway_url: str | None = Field(
         default="https://llm-api.livbee.co.kr",

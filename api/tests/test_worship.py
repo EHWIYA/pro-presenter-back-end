@@ -23,6 +23,49 @@ def test_build_agent_body_defaults():
     assert body["group_theme_key"] == "reader-context"
     assert body["build_mode"] == "append"
     assert body["auto_trigger"] is False
+    assert body["library_category"] == "말씀"
+
+
+def test_build_agent_body_overrides():
+    from app.config import Settings
+
+    settings = Settings()
+    body = build_agent_body(
+        "마 3:1",
+        settings,
+        auto_trigger=True,
+        build_mode="replace",
+        group_theme_key="sermon",
+    )
+    assert body["auto_trigger"] is True
+    assert body["build_mode"] == "replace"
+    assert body["group_theme_key"] == "sermon"
+
+
+@patch("app.worship._agent_post", new_callable=AsyncMock)
+def test_venue_v1_build_with_reference(mock_post):
+    mock_post.return_value = {
+        "ok": True,
+        "slide_map": [{"index": 1, "label": "마 3:1"}],
+    }
+    with TestClient(app) as client:
+        r = client.post(
+            "/api/v1/venues/hwiya-pc/build",
+            json={"reference": "마 3:1", "auto_trigger": False},
+        )
+    assert r.status_code == 200
+    agent_body = mock_post.await_args.kwargs["json_body"]
+    assert agent_body["reference"] == "마 3:1"
+    assert agent_body["auto_trigger"] is False
+
+
+@patch("app.worship._agent_post", new_callable=AsyncMock)
+def test_venue_v1_trigger_query_index(mock_post):
+    mock_post.return_value = {"ok": True}
+    with TestClient(app) as client:
+        r = client.post("/api/v1/venues/hwiya-pc/trigger?index=33")
+    assert r.status_code == 200
+    assert mock_post.await_args.args[2] == "/trigger?index=33"
 
 
 @patch("app.worship._agent_post", new_callable=AsyncMock)
@@ -74,4 +117,4 @@ def test_worship_build_empty_text():
             "/venues/hwiya-pc/worship/build",
             json={"text": "   \n  "},
         )
-    assert r.status_code == 400
+    assert r.status_code == 422

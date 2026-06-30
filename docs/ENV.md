@@ -22,6 +22,7 @@
 | `AGENT_HEARTBEAT_KEY` | `POST /internal/agent/{id}/heartbeat` 인증 (`X-Agent-Key`) |
 | `VENUES_STATUS_WALL_TIMEOUT_SEC` | `/venues/status` 전체 wall timeout (기본 **15**) |
 | `RUNTIME_STALE_SEC` | runtime 캐시 stale 판정 (기본 **120**) |
+| `AGENT_LIBRARY_CATEGORY` | 성경 build 시 에이전트 `library_category` (기본 `말씀`) |
 | `LLM_GATEWAY_URL` | `https://llm-api.livbee.co.kr` (로컬 게이트웨이: `http://127.0.0.1:18080`) |
 | `LLM_GATEWAY_API_KEY` | cursor-llm-gateway `x-api-key` |
 | `LLM_GATEWAY_TIMEOUT_SEC` | analyze·job 폴링 프록시 타임아웃 (기본 120) |
