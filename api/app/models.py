@@ -161,6 +161,8 @@ class WorshipSession(Base):
     venue_id: Mapped[str] = mapped_column(Text, nullable=False, index=True)
     kind: Mapped[str] = mapped_column(Text, nullable=False, server_default="scripture")
     reference: Mapped[str | None] = mapped_column(Text, nullable=True)
+    presentation_filename: Mapped[str | None] = mapped_column(Text, nullable=True)
+    library_category: Mapped[str | None] = mapped_column(Text, nullable=True)
     slide_map: Mapped[list] = mapped_column(JsonType, nullable=False, server_default="[]")
     slide_count: Mapped[int | None] = mapped_column(Integer, nullable=True)
     total_slide_count: Mapped[int | None] = mapped_column(Integer, nullable=True)

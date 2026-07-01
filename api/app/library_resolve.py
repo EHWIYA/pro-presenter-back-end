@@ -100,7 +100,7 @@ async def resolve_venue_library(
     venue: Venue,
     settings: Settings,
 ) -> LibraryResolveResult:
-    """이름(기본 worship-2)으로 UUID를 찾고, 설정된 ID는 짧은 probe 후 fallback."""
+    """이름(기본 말씀)으로 UUID를 찾고, 설정된 ID는 짧은 probe 후 fallback."""
     target_name = pp_library_name_for_venue(venue, settings)
     configured_id = pp_ids_for_venue(venue, settings).get("library_id")
     catalog = await _fetch_libraries_catalog(client, settings)

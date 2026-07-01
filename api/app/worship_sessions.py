@@ -45,7 +45,21 @@ async def create_scripture_session(
     *,
     reference: str,
     agent_result: dict[str, Any],
+    presentation_filename: str | None = None,
+    library_category: str | None = None,
 ) -> tuple[WorshipSession, dict[str, Any]]:
+    from app.agent_library import (
+        resolve_scripture_library_category,
+        resolve_scripture_presentation_filename,
+    )
+    from app.config import get_settings
+
+    settings = get_settings()
+    resolved_filename = resolve_scripture_presentation_filename(presentation_filename)
+    resolved_category = resolve_scripture_library_category(
+        library_category,
+        default=settings.agent_library_category,
+    )
     slide_map = _normalize_slide_map(agent_result.get("slide_map") or agent_result.get("slideMap"))
     worship_session = WorshipSession(
         venue_id=venue_id,
@@ -54,6 +68,8 @@ async def create_scripture_session(
         slide_map=slide_map,
         slide_count=agent_result.get("slide_count"),
         total_slide_count=agent_result.get("total_slide_count"),
+        presentation_filename=resolved_filename,
+        library_category=resolved_category,
     )
     session.add(worship_session)
     await session.commit()
@@ -73,6 +89,8 @@ async def create_scripture_session(
         "sessionId": str(worship_session.id),
         "reference": reference,
         "slide_map": slide_map,
+        "presentationFilename": resolved_filename,
+        "libraryCategory": resolved_category,
     }
     return worship_session, response
 

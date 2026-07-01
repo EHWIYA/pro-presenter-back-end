@@ -46,6 +46,12 @@ class VenueBuildRequest(BaseModel):
     auto_trigger: bool = Field(default=False)
     build_mode: str | None = Field(default=None, examples=["append"])
     group_theme_key: str | None = Field(default=None, examples=["reader-context"])
+    library_category: str | None = Field(default=None, examples=["말씀"])
+    presentation_filename: str | None = Field(
+        default=None,
+        examples=["260701-말씀.pro"],
+        description="생략 시 KST 오늘 날짜 기준 YYMMDD-말씀.pro",
+    )
 
     @model_validator(mode="after")
     def require_reference_or_text(self) -> VenueBuildRequest:
@@ -254,6 +260,8 @@ async def venue_worship_build(
             auto_trigger=body.auto_trigger,
             build_mode=body.build_mode,
             group_theme_key=body.group_theme_key,
+            library_category=body.library_category,
+            presentation_filename=body.presentation_filename,
         )
         if is_db_configured():
             reference = result.get("reference")
@@ -269,6 +277,8 @@ async def venue_worship_build(
                     venue_id,
                     reference=str(reference),
                     agent_result=result,
+                    presentation_filename=body.presentation_filename,
+                    library_category=body.library_category,
                 )
                 return enriched
         return result

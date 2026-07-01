@@ -96,6 +96,8 @@ class WorshipBuildSongRequest(BaseModel):
     song_title: str | None = Field(default=None, alias="songTitle")
     song_id: str | None = Field(default=None, alias="songId")
     build_mode: str = Field(default="replace", alias="buildMode", examples=["replace"])
+    library_category: str | None = Field(default=None, alias="libraryCategory")
+    group_theme_key: str | None = Field(default=None, alias="groupThemeKey")
     sections: list[SongSection] | None = None
 
     model_config = {"populate_by_name": True}
@@ -368,6 +370,7 @@ async def api_worship_build_song(
     song_title = body.song_title or ""
     sections: list[dict[str, Any]]
     source_song_id: str | None = body.song_id
+    song_category: str | None = None
 
     if body.song_id:
         if session is None:
@@ -382,10 +385,23 @@ async def api_worship_build_song(
         loaded = await get_song_for_build(session, uid)
         if loaded is None:
             raise HTTPException(status_code=404, detail="곡을 찾을 수 없습니다.")
-        song_title, sections = loaded
+        song_title, sections, song_category = loaded
     else:
         sections = [s.model_dump() for s in (body.sections or [])]
         source_song_id = None
+
+    from app.agent_library import AgentLibraryError, resolve_song_library_category
+
+    try:
+        library_category = resolve_song_library_category(
+            song_title=song_title,
+            song_category=song_category,
+            override=body.library_category,
+        )
+    except AgentLibraryError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+    group_theme_key = (body.group_theme_key or "lyric").strip() or "lyric"
 
     try:
         result = await worship_build_song(
@@ -394,7 +410,9 @@ async def api_worship_build_song(
             song_title=song_title,
             build_mode=body.build_mode,
             sections=sections,
+            library_category=library_category,
             source_song_id=source_song_id,
+            group_theme_key=group_theme_key,
         )
     except WorshipError as exc:
         detail: dict[str, Any] = {"message": str(exc)}

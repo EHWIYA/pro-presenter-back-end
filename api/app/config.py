@@ -78,7 +78,7 @@ class Settings(BaseSettings):
         validation_alias=AliasChoices("PP_LIBRARY_ID", "PP_DOCUMENT_UUID"),
     )
     pp_library_name_default: str = Field(
-        default="worship-2",
+        default="말씀",
         validation_alias="PP_LIBRARY_NAME_DEFAULT",
     )
     pp_libraries_timeout_sec: float = Field(

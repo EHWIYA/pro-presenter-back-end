@@ -250,6 +250,8 @@ def test_build_song_by_song_id(mock_post, client: TestClient):
     body = mock_post.await_args.kwargs["json_body"]
     assert body["source_song_id"] == song_id
     assert body["song_title"] == "빌드곡"
+    assert body["library_category"] == "찬양"
+    assert body["group_theme_key"] == "lyric"
 
 
 def test_build_song_xor_validation(client: TestClient):

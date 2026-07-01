@@ -54,11 +54,15 @@ def build_song_agent_body(
     song_title: str,
     build_mode: str,
     sections: list[dict[str, Any]],
+    library_category: str,
     source_song_id: str | None = None,
+    group_theme_key: str = "lyric",
 ) -> dict[str, Any]:
     """PWA camelCase → 에이전트 snake_case."""
     body: dict[str, Any] = {
         "song_title": song_title,
+        "library_category": library_category,
+        "group_theme_key": group_theme_key,
         "build_mode": build_mode,
         "sections": [
             {
@@ -78,16 +82,19 @@ def build_agent_body(
     reference: str,
     settings: Settings,
     *,
+    presentation_filename: str,
     auto_trigger: bool | None = None,
     build_mode: str | None = None,
     group_theme_key: str | None = None,
+    library_category: str | None = None,
 ) -> dict[str, Any]:
     return {
         "reference": reference,
+        "presentation_filename": presentation_filename,
+        "library_category": library_category or settings.agent_library_category,
         "group_theme_key": group_theme_key or settings.agent_group_theme_key,
         "build_mode": build_mode or settings.agent_build_mode,
         "auto_trigger": settings.agent_auto_trigger if auto_trigger is None else auto_trigger,
-        "library_category": settings.agent_library_category,
     }
 
 
@@ -171,18 +178,40 @@ async def worship_build(
     auto_trigger: bool | None = None,
     build_mode: str | None = None,
     group_theme_key: str | None = None,
+    library_category: str | None = None,
+    presentation_filename: str | None = None,
 ) -> dict[str, Any]:
+    from app.agent_library import (
+        AgentLibraryError,
+        resolve_scripture_library_category,
+        resolve_scripture_presentation_filename,
+    )
+
     resolved = resolve_build_reference(reference=reference, text=text)
+    try:
+        resolved_filename = resolve_scripture_presentation_filename(presentation_filename)
+        resolved_category = resolve_scripture_library_category(
+            library_category,
+            default=settings.agent_library_category,
+        )
+    except AgentLibraryError as exc:
+        raise WorshipError(str(exc), status_code=422) from exc
     body = build_agent_body(
         resolved,
         settings,
+        presentation_filename=resolved_filename,
         auto_trigger=auto_trigger,
         build_mode=build_mode,
         group_theme_key=group_theme_key,
+        library_category=resolved_category,
     )
     result = await _agent_post(venue, settings, "/build", json_body=body)
     if "reference" not in result:
         result = {**result, "reference": resolved}
+    if "presentation_filename" not in result:
+        result = {**result, "presentation_filename": resolved_filename}
+    if "library_category" not in result:
+        result = {**result, "library_category": resolved_category}
     return result
 
 
@@ -201,7 +230,9 @@ async def worship_build_song(
     song_title: str,
     build_mode: str,
     sections: list[dict[str, Any]],
+    library_category: str,
     source_song_id: str | None = None,
+    group_theme_key: str = "lyric",
 ) -> dict[str, Any]:
     if not sections:
         raise WorshipError("sections가 비어 있습니다.", status_code=400)
@@ -209,9 +240,13 @@ async def worship_build_song(
         song_title=song_title,
         build_mode=build_mode,
         sections=sections,
+        library_category=library_category,
         source_song_id=source_song_id,
+        group_theme_key=group_theme_key,
     )
     result = await _agent_post(venue, settings, "/build-song", json_body=body)
     if "song_title" not in result:
         result = {**result, "song_title": song_title}
+    if "library_category" not in result:
+        result = {**result, "library_category": library_category}
     return result

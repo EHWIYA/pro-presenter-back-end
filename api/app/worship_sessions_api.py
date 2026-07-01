@@ -25,6 +25,8 @@ router = APIRouter(prefix="/api/v1/venues", tags=["worship-sessions"])
 class WorshipSessionBuildRequest(BaseModel):
     text: str | None = Field(default=None, examples=["마 3:1-10\n마 3:2"])
     reference: str | None = Field(default=None, examples=["마 3:1-10"])
+    library_category: str | None = Field(default=None, examples=["말씀"])
+    presentation_filename: str | None = Field(default=None, examples=["260701-말씀.pro"])
 
 
 class WorshipSessionTriggerRequest(BaseModel):
@@ -62,6 +64,8 @@ async def create_worship_session(
             settings,
             reference=body.reference,
             text=body.text,
+            library_category=body.library_category,
+            presentation_filename=body.presentation_filename,
         )
     except WorshipError as exc:
         detail: dict[str, Any] = {"message": str(exc)}
@@ -78,6 +82,8 @@ async def create_worship_session(
             venue_id,
             reference=reference,
             agent_result=agent_result,
+            presentation_filename=body.presentation_filename,
+            library_category=body.library_category,
         )
         return response
     raise HTTPException(status_code=503, detail="DB 세션을 열 수 없습니다.")

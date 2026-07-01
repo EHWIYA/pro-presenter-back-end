@@ -18,8 +18,9 @@ def test_build_agent_body_defaults():
     from app.config import Settings
 
     settings = Settings()
-    body = build_agent_body("마 3:1", settings)
+    body = build_agent_body("마 3:1", settings, presentation_filename="260701-말씀.pro")
     assert body["reference"] == "마 3:1"
+    assert body["presentation_filename"] == "260701-말씀.pro"
     assert body["group_theme_key"] == "reader-context"
     assert body["build_mode"] == "append"
     assert body["auto_trigger"] is False
@@ -33,6 +34,7 @@ def test_build_agent_body_overrides():
     body = build_agent_body(
         "마 3:1",
         settings,
+        presentation_filename="260701-말씀.pro",
         auto_trigger=True,
         build_mode="replace",
         group_theme_key="sermon",
@@ -51,12 +53,19 @@ def test_venue_v1_build_with_reference(mock_post):
     with TestClient(app) as client:
         r = client.post(
             "/api/v1/venues/hwiya-pc/build",
-            json={"reference": "마 3:1", "auto_trigger": False},
+            json={
+                "reference": "마 3:1",
+                "auto_trigger": False,
+                "presentation_filename": "260701-말씀.pro",
+                "library_category": "말씀",
+            },
         )
     assert r.status_code == 200
     agent_body = mock_post.await_args.kwargs["json_body"]
     assert agent_body["reference"] == "마 3:1"
     assert agent_body["auto_trigger"] is False
+    assert agent_body["presentation_filename"] == "260701-말씀.pro"
+    assert agent_body["library_category"] == "말씀"
 
 
 @patch("app.worship._agent_post", new_callable=AsyncMock)

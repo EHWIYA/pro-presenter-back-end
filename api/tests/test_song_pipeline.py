@@ -10,6 +10,7 @@ def test_build_song_agent_body_snake_case():
     body = build_song_agent_body(
         song_title="주님의 마음",
         build_mode="append",
+        library_category="찬양",
         sections=[
             {"type": "verse", "label": "1절", "lines": ["첫 줄", "둘째 줄"]},
         ],
@@ -17,6 +18,8 @@ def test_build_song_agent_body_snake_case():
     )
     assert body == {
         "song_title": "주님의 마음",
+        "library_category": "찬양",
+        "group_theme_key": "lyric",
         "build_mode": "append",
         "source_song_id": "550e8400-e29b-41d4-a716-446655440000",
         "sections": [
@@ -86,6 +89,10 @@ def test_worship_build_song_endpoint(mock_post):
     assert r.json()["slide_map"][0]["label"] == "1절"
     mock_post.assert_awaited_once()
     assert mock_post.await_args.args[2] == "/build-song"
+    agent_body = mock_post.await_args.kwargs["json_body"]
+    assert agent_body["song_title"] == "주님의 마음"
+    assert agent_body["library_category"] == "찬양"
+    assert agent_body["group_theme_key"] == "lyric"
 
 
 @patch("app.songs_api.song_analyze", new_callable=AsyncMock)

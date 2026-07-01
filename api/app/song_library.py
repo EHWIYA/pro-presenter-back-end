@@ -341,12 +341,12 @@ async def import_song_record(
 
 async def get_song_for_build(
     session: AsyncSession, song_id: uuid.UUID
-) -> tuple[str, list[dict[str, Any]]] | None:
+) -> tuple[str, list[dict[str, Any]], str] | None:
     song = await _get_active_song(session, song_id, load_sections=True)
     if song is None:
         return None
     sections = [_section_dict(s) for s in song.sections]
-    return song.title, sections
+    return song.title, sections, _song_category(song)
 
 
 async def _get_active_song(
