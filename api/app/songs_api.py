@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response
@@ -35,6 +36,20 @@ _GONE_DETAIL = (
     "곡 편집은 pro-presenter-data Git(Libraries/)에서 관리합니다. "
     "docs/handoff/song-catalog.md 참고."
 )
+
+
+@dataclass(frozen=True, slots=True)
+class SectionsLoadResult:
+    sections: list[dict[str, Any]]
+    hint: str | None = None
+
+
+def _format_agent_sections_hint(exc: WorshipError) -> str:
+    msg = str(exc).strip()
+    hint = (exc.hint or "").strip()
+    if hint and hint not in msg:
+        return f"{msg} ({hint})"
+    return msg or hint or "에이전트에서 .pro 구간을 읽지 못했습니다."
 
 
 class SongSection(BaseModel):
@@ -130,22 +145,20 @@ async def _load_sections_for_song(
     venue_id: str | None,
     library_category: str,
     stem: str,
-) -> list[dict[str, Any]] | None:
+) -> SectionsLoadResult:
     if not venue_id:
-        return None
+        return SectionsLoadResult([])
     venue = _resolve_venue(request, venue_id)
     try:
-        return await fetch_song_sections_from_agent(
+        sections = await fetch_song_sections_from_agent(
             venue,
             settings,
             library_category=library_category,
             stem=stem,
         )
     except WorshipError as exc:
-        raise HTTPException(
-            status_code=exc.status_code,
-            detail={"message": str(exc), "hint": exc.hint},
-        ) from exc
+        return SectionsLoadResult([], hint=_format_agent_sections_hint(exc))
+    return SectionsLoadResult(sections or [])
 
 
 @router.get("/api/v1/songs")
@@ -188,6 +201,7 @@ async def get_song(
     except SongCatalogError as exc:
         raise _http_from_catalog(exc) from exc
     sections_list: list[dict[str, Any]] = []
+    sections_hint: str | None = None
     if venue_id:
         loaded = await _load_sections_for_song(
             request,
@@ -196,11 +210,14 @@ async def get_song(
             library_category=lib_cat,
             stem=stem,
         )
-        sections_list = loaded or []
+        sections_list = loaded.sections
+        sections_hint = loaded.hint
     detail = get_song_detail(settings, song_id, sections=sections_list)
     if detail is None:
         raise HTTPException(status_code=404, detail="곡을 찾을 수 없습니다.")
-    if venue_id and not sections_list:
+    if sections_hint:
+        detail["sectionsHint"] = sections_hint
+    elif venue_id and not sections_list:
         detail["sectionsHint"] = (
             "에이전트가 .pro 구간을 반환하지 않았습니다. "
             "GET /api/v1/venues/{venueId}/library/songs/{songId}/sections 확인."
@@ -227,15 +244,16 @@ async def api_song_analyze(
     if is_catalog_configured(settings) and not body.force_reanalyze and title_for_match:
         matches = find_by_title_normalized(settings, title_for_match)
         if len(matches) == 1:
-            sections = None
+            sections: list[dict[str, Any]] | None = None
             if body.venue_id:
-                sections = await _load_sections_for_song(
+                loaded = await _load_sections_for_song(
                     request,
                     settings,
                     venue_id=body.venue_id,
                     library_category=matches[0].library_category,
                     stem=matches[0].stem,
                 )
+                sections = loaded.sections
             return library_hit_response(matches[0], sections=sections)
         if len(matches) > 1:
             return library_candidates_response(title_for_match, matches)

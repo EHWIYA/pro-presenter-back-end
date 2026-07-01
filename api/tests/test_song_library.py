@@ -171,6 +171,25 @@ def test_build_song_xor_validation(client: TestClient):
 
 
 @patch("app.songs_api.fetch_song_sections_from_agent", new_callable=AsyncMock)
+def test_catalog_get_detail_with_venue_agent_miss(mock_sections, client: TestClient):
+    from app.worship import WorshipError
+
+    mock_sections.side_effect = WorshipError(
+        "곡 파일을 찾을 수 없습니다: Libraries/찬양/주님의 마음.pro",
+        status_code=404,
+        hint="agent URL: http://127.0.0.1:8787/library/songs/찬양/주님의%20마음/sections",
+    )
+    encoded = quote(_SONG_ID_PRAISE, safe="")
+    r = client.get(f"/api/v1/songs/{encoded}", params={"venueId": "hwiya-pc"})
+    assert r.status_code == 200
+    body = r.json()
+    assert body["title"] == "주님의 마음"
+    assert body["sections"] == []
+    assert "sectionsHint" in body
+    assert "곡 파일을 찾을 수 없습니다" in body["sectionsHint"]
+
+
+@patch("app.songs_api.fetch_song_sections_from_agent", new_callable=AsyncMock)
 def test_venue_library_sections_proxy(mock_sections, client: TestClient):
     mock_sections.return_value = [{"type": "chorus", "label": "후렴", "lines": ["할렐루야"]}]
     encoded = quote(_SONG_ID_PRAISE, safe="")

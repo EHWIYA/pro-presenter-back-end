@@ -26,7 +26,7 @@
 | `LLM_GATEWAY_URL` | `https://llm-api.livbee.co.kr` (로컬 게이트웨이: `http://127.0.0.1:18080`) |
 | `LLM_GATEWAY_API_KEY` | cursor-llm-gateway `x-api-key` |
 | `LLM_GATEWAY_TIMEOUT_SEC` | analyze·job 폴링 프록시 타임아웃 (기본 120) |
-| `DATA_REPO_PATH` | `data/fixtures/pro-presenter-data` (로컬) · NAS `/app/data/pro-presenter-data` |
+| `DATA_REPO_PATH` | pytest: `api/data/fixtures/...` · **NAS**: `ops/data/pro-presenter-data` Git clone (`bin/sync-data-repo.sh`) |
 | `DATABASE_URL` | worship session·runtime용 Postgres (곡 테이블 없음) |
 | `SONG_CATALOG_DEFAULT_LIMIT` | 곡 검색 기본 limit (기본 20) |
 

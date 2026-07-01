@@ -38,6 +38,15 @@ URL에는 percent-encoding 사용.
 
 카탈로그 메타. `?venueId=` 제공 시 에이전트가 `.pro`에서 `sections` 조회 시도.
 
+| 상황 | HTTP | 응답 |
+|------|------|------|
+| 카탈로그에 곡 없음 | 404 | — |
+| 메타만 (`venueId` 없음) | 200 | `sections: []` |
+| PC에 `.pro` 있음 | 200 | `sections` 채움 |
+| PC에 `.pro` 없음·에이전트 실패 | 200 | `sections: []` + `sectionsHint` (soft-fail) |
+
+`sectionsHint`는 에이전트 오류 메시지·URL 힌트. 상세 프록시는 `GET .../venues/{venueId}/library/songs/{songId}/sections`.
+
 ## 제거됨 (410 Gone)
 
 `POST/PATCH/DELETE /songs`, `PUT .../sections`, `/song-categories`, `/admin/songs/import`  

@@ -16,4 +16,11 @@ fi
 [ -f venues.json ] || echo "setup: venues.json 을 배치하세요"
 [ -f data/bible-krv.json ] || echo "setup: data/bible-krv.json (전체 성경) 을 배치하세요"
 
+if [ -x bin/sync-data-repo.sh ]; then
+  echo "setup: pro-presenter-data 동기화"
+  ./bin/sync-data-repo.sh
+else
+  echo "setup: bin/sync-data-repo.sh 없음 — data/pro-presenter-data 를 Git clone 하세요 (ops/data/README.md)"
+fi
+
 echo "setup: 완료 (${OPS_DIR})"

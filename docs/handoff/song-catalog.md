@@ -36,7 +36,7 @@ URL 경로에는 percent-encoding (`찬양` → `%EC%B0%AC%EC%96%91`).
 | 메서드 | 경로 | 설명 |
 |--------|------|------|
 | GET | `/api/v1/songs` | data repo 인덱스 |
-| GET | `/api/v1/songs/{songId}` | 메타; `?venueId=` 시 sections 에이전트 조회 |
+| GET | `/api/v1/songs/{songId}` | 메타; `?venueId=` 시 sections 에이전트 조회 (실패 시 **200** + `sectionsHint`) |
 | POST | `/api/v1/song/analyze` | LLM 프록시; 제목 선매칭은 catalog |
 | GET | `/api/v1/song/jobs/{jobId}` | analyze 폴링 (DB 저장 없음) |
 | POST | `/api/v1/worship/build-song` | `songId` 또는 `sections` |

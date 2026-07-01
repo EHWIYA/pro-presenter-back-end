@@ -15,5 +15,5 @@ rsync -avz \
   "${SSH_TARGET}:${REMOTE}/"
 # .env 는 NAS에만 두고 덮어쓰지 않음
 
-ssh "$SSH_TARGET" "chmod +x ${REMOTE}/bin/*.sh; ${REMOTE}/bin/setup-nas.sh"
+ssh "$SSH_TARGET" "chmod +x ${REMOTE}/bin/*.sh; ${REMOTE}/bin/setup-nas.sh; ${REMOTE}/bin/sync-data-repo.sh"
 echo "install: ${REMOTE} 반영 완료"

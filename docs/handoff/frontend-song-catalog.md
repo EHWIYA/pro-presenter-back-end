@@ -15,7 +15,7 @@
 | `POST/PATCH/DELETE /songs`, `PUT .../sections` | **410** — 편집 UI 제거 또는 “data repo 관리” 안내 |
 | `/song-categories` | **제거** — `category` / `libraryCategory` 필터 사용 |
 | `GET /songs` | catalog 목록 (`libraryCategory`, `presentationFilename` 추가) |
-| `GET /songs/{id}?venueId=` | sections는 venue 있을 때만 채워짐 |
+| `GET /songs/{id}?venueId=` | PC에 `.pro` 있으면 `sections` 채움; 없으면 **200** + `sectionsHint` (404 아님) |
 | analyze job 완료 | `libraryAction: skipped` — DB 저장 없음 |
 | `build-song` + `songId` | 경로형 id; 에이전트가 sections 반환 필요 |
 

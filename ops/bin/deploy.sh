@@ -27,6 +27,11 @@ else
 fi
 export PP_API_IMAGE="$IMAGE"
 
+if [ -x "${OPS_DIR}/bin/sync-data-repo.sh" ]; then
+  echo "deploy: sync pro-presenter-data"
+  "${OPS_DIR}/bin/sync-data-repo.sh"
+fi
+
 echo "deploy: pull ${IMAGE}"
 docker compose pull -q
 docker compose up -d --remove-orphans
