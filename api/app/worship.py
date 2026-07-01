@@ -57,6 +57,7 @@ def build_song_agent_body(
     library_category: str,
     source_song_id: str | None = None,
     group_theme_key: str = "lyric",
+    lines_per_slide: int | None = None,
 ) -> dict[str, Any]:
     """PWA camelCase → 에이전트 snake_case."""
     body: dict[str, Any] = {
@@ -75,6 +76,8 @@ def build_song_agent_body(
     }
     if source_song_id:
         body["source_song_id"] = source_song_id
+    if lines_per_slide is not None:
+        body["lines_per_slide"] = lines_per_slide
     return body
 
 
@@ -278,6 +281,7 @@ async def worship_build_song(
     library_category: str,
     source_song_id: str | None = None,
     group_theme_key: str = "lyric",
+    lines_per_slide: int | None = None,
 ) -> dict[str, Any]:
     if not sections:
         raise WorshipError("sections가 비어 있습니다.", status_code=400)
@@ -288,6 +292,7 @@ async def worship_build_song(
         library_category=library_category,
         source_song_id=source_song_id,
         group_theme_key=group_theme_key,
+        lines_per_slide=lines_per_slide,
     )
     result = await _agent_post(venue, settings, "/build-song", json_body=body)
     if "song_title" not in result:

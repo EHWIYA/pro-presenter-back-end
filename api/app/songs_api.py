@@ -55,7 +55,7 @@ def _format_agent_sections_hint(exc: WorshipError) -> str:
 class SongSection(BaseModel):
     type: str = Field(..., examples=["verse"])
     label: str = Field(..., examples=["1절"])
-    lines: list[str] = Field(..., min_length=1, max_length=2)
+    lines: list[str] = Field(..., min_length=1)
 
 
 class SongAnalyzeRequest(BaseModel):
@@ -97,6 +97,12 @@ class WorshipBuildSongRequest(BaseModel):
     build_mode: str = Field(default="replace", alias="buildMode", examples=["replace"])
     library_category: str | None = Field(default=None, alias="libraryCategory")
     group_theme_key: str | None = Field(default=None, alias="groupThemeKey")
+    lines_per_slide: int | None = Field(
+        default=None,
+        alias="linesPerSlide",
+        ge=1,
+        description="catalog 모드: 구간 lines 항목당 슬라이드 1줄 (최대 64줄/구간).",
+    )
     sections: list[SongSection] | None = None
 
     model_config = {"populate_by_name": True}
@@ -395,7 +401,7 @@ async def api_worship_build_song(
         source_song_id = None
         for sec in sections:
             try:
-                validate_section(sec)
+                validate_section(sec, lines_per_slide=body.lines_per_slide)
             except SongCatalogError as exc:
                 raise _http_from_catalog(exc) from exc
 
@@ -422,6 +428,7 @@ async def api_worship_build_song(
             library_category=library_category,
             source_song_id=source_song_id,
             group_theme_key=group_theme_key,
+            lines_per_slide=body.lines_per_slide,
         )
     except WorshipError as exc:
         detail: dict[str, Any] = {"message": str(exc)}

@@ -15,6 +15,7 @@ from app.title_normalize import normalize_song_title
 
 SECTION_TYPES = frozenset(
     {
+        "title",
         "intro",
         "verse",
         "pre_chorus",
@@ -26,6 +27,9 @@ SECTION_TYPES = frozenset(
         "unknown",
     }
 )
+
+MAX_SECTION_LINES_LEGACY = 2
+MAX_SECTION_LINES_CATALOG = 64
 
 FOLDER_TO_API_CATEGORY: dict[str, str] = {
     "찬양": "praise",
@@ -270,7 +274,7 @@ def library_candidates_response(title: str, songs: list[CatalogSong]) -> dict[st
     }
 
 
-def validate_section(section: dict[str, Any]) -> None:
+def validate_section(section: dict[str, Any], *, lines_per_slide: int | None = None) -> None:
     stype = section.get("type")
     if stype not in SECTION_TYPES:
         raise SongCatalogError(f"유효하지 않은 section type: {stype}", status_code=422)
@@ -278,5 +282,11 @@ def validate_section(section: dict[str, Any]) -> None:
     if not label or not str(label).strip():
         raise SongCatalogError("section label이 필요합니다.", status_code=422)
     lines = section.get("lines")
-    if not isinstance(lines, list) or not lines or len(lines) > 2:
+    max_lines = MAX_SECTION_LINES_CATALOG if lines_per_slide is not None else MAX_SECTION_LINES_LEGACY
+    if not isinstance(lines, list) or not lines or len(lines) > max_lines:
+        if lines_per_slide is not None:
+            raise SongCatalogError(
+                f"section lines는 1~{MAX_SECTION_LINES_CATALOG}줄이어야 합니다.",
+                status_code=422,
+            )
         raise SongCatalogError("section lines는 1~2줄이어야 합니다.", status_code=422)

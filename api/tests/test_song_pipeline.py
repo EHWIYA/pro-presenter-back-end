@@ -28,6 +28,22 @@ def test_build_song_agent_body_snake_case():
     }
 
 
+def test_build_song_agent_body_lines_per_slide():
+    body = build_song_agent_body(
+        song_title="성가테스트",
+        build_mode="replace",
+        library_category="성가곡",
+        lines_per_slide=1,
+        sections=[
+            {"type": "title", "label": "제목", "lines": ["성가테스트"]},
+            {"type": "verse", "label": "1절", "lines": ["첫 줄", "둘째 줄"]},
+        ],
+    )
+    assert body["lines_per_slide"] == 1
+    assert body["sections"][0]["type"] == "title"
+    assert len(body["sections"][1]["lines"]) == 2
+
+
 @patch("app.songs_api.song_analyze", new_callable=AsyncMock)
 def test_song_analyze_lyrics(mock_analyze):
     mock_analyze.return_value = {
@@ -64,6 +80,48 @@ def test_song_job_poll(mock_get_job):
         r = client.get("/api/v1/song/jobs/job-abc")
     assert r.status_code == 200
     assert r.json()["parsed"]["sections"][0]["lines"] == ["가", "나"]
+
+
+@patch("app.worship._agent_post", new_callable=AsyncMock)
+def test_worship_build_song_catalog_mode(mock_post):
+    mock_post.return_value = {
+        "ok": True,
+        "slide_map": [{"index": 1, "label": "제목"}, {"index": 2, "label": "1절"}],
+        "groups": [],
+    }
+    with TestClient(app) as client:
+        r = client.post(
+            "/api/v1/worship/build-song",
+            json={
+                "venueId": "hwiya-pc",
+                "songTitle": "성가테스트",
+                "buildMode": "replace",
+                "linesPerSlide": 1,
+                "sections": [
+                    {"type": "title", "label": "제목", "lines": ["성가테스트"]},
+                    {"type": "verse", "label": "1절", "lines": ["첫 줄", "둘째 줄"]},
+                ],
+            },
+        )
+    assert r.status_code == 200
+    agent_body = mock_post.await_args.kwargs["json_body"]
+    assert agent_body["lines_per_slide"] == 1
+    assert agent_body["sections"][0]["type"] == "title"
+
+
+def test_worship_build_song_rejects_three_lines_without_catalog_mode():
+    with TestClient(app) as client:
+        r = client.post(
+            "/api/v1/worship/build-song",
+            json={
+                "venueId": "hwiya-pc",
+                "songTitle": "x",
+                "sections": [
+                    {"type": "verse", "label": "1", "lines": ["a", "b", "c"]},
+                ],
+            },
+        )
+    assert r.status_code == 422
 
 
 @patch("app.worship._agent_post", new_callable=AsyncMock)
