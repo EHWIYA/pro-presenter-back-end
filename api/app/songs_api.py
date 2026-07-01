@@ -1,39 +1,40 @@
-"""곡 라이브러리 API 라우터."""
+"""곡 카탈로그 API — pro-presenter-data Libraries/*.pro."""
 
 from __future__ import annotations
 
-import json
-import uuid
-from collections.abc import AsyncGenerator
-from typing import Annotated, Any
+from typing import Any
 
-from fastapi import APIRouter, Depends, Header, HTTPException, Query, Request, Response
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response
 from pydantic import BaseModel, Field, model_validator
-from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import Settings, get_settings
-from app.database import get_db_session, is_db_configured
-from app.job_context import AnalyzeJobContext, set_job_context
-from app.song_gateway import SongGatewayError, song_analyze, song_get_job
-from app.song_library import (
-    SongLibraryError,
-    create_song,
+from app.job_context import AnalyzeJobContext, get_job_context, set_job_context
+from app.song_catalog import (
+    SongCatalogError,
     find_by_title_normalized,
+    get_catalog_song,
     get_song_detail,
     get_song_for_build,
-    import_song_record,
+    is_catalog_configured,
     library_candidates_response,
     library_hit_response,
-    update_song_sections,
-    search_songs,
-    soft_delete_song,
-    update_song_meta,
-    upsert_from_analyze,
+    search_catalog,
+    validate_section,
 )
+from app.song_gateway import SongGatewayError, song_analyze, song_get_job
 from app.venues import VenueError
-from app.worship import WorshipError, worship_build_song
+from app.worship import (
+    WorshipError,
+    fetch_song_sections_from_agent,
+    worship_build_song,
+)
 
 router = APIRouter()
+
+_GONE_DETAIL = (
+    "곡 편집은 pro-presenter-data Git(Libraries/)에서 관리합니다. "
+    "docs/handoff/song-catalog.md 참고."
+)
 
 
 class SongSection(BaseModel):
@@ -42,39 +43,22 @@ class SongSection(BaseModel):
     lines: list[str] = Field(..., min_length=1, max_length=2)
 
 
-class SongCreateRequest(BaseModel):
-    title: str
-    artist: str | None = None
-    tags: list[str] = Field(default_factory=list)
-    category: str | None = None
-    sections: list[SongSection]
-
-
-class SongPatchRequest(BaseModel):
-    title: str | None = None
-    artist: str | None = None
-    tags: list[str] | None = None
-    category: str | None = None
-
-
-class SongSectionsUpdateRequest(BaseModel):
-    sections: list[SongSection] | None = None
-    title: str | None = None
-    category: str | None = None
-
-
 class SongAnalyzeRequest(BaseModel):
     song_title: str | None = Field(
         default=None,
         alias="songTitle",
-        description="선매칭·게이트웨이 힌트용. 신규 악보(이미지만)는 생략 가능.",
+        description="선매칭·게이트웨이 힌트용.",
         examples=["주님의 마음"],
+    )
+    venue_id: str | None = Field(
+        default=None,
+        alias="venueId",
+        description="선매칭 시 .pro sections 조회용 현장 ID.",
     )
     image_base64: str | None = Field(default=None, alias="imageBase64")
     image_mime_type: str | None = Field(default=None, alias="imageMimeType")
     lyrics_text: str | None = Field(default=None, alias="lyricsText")
     force_reanalyze: bool = Field(default=False, alias="forceReanalyze")
-    save_to_library: bool = Field(default=True, alias="saveToLibrary")
     library_song_id: str | None = Field(default=None, alias="librarySongId")
     client_ref: str | None = Field(default=None, alias="clientRef")
 
@@ -113,33 +97,15 @@ class WorshipBuildSongRequest(BaseModel):
         return self
 
 
-def _require_db() -> None:
-    if not is_db_configured():
+def _require_catalog(settings: Settings) -> None:
+    if not is_catalog_configured(settings):
         raise HTTPException(
             status_code=503,
-            detail="곡 라이브러리 DB가 설정되지 않았습니다 (DATABASE_URL).",
+            detail="곡 카탈로그가 설정되지 않았습니다 (DATA_REPO_PATH/Libraries).",
         )
 
 
-async def _db_session_required() -> AsyncGenerator[AsyncSession, None]:
-    _require_db()
-    async for session in get_db_session():
-        yield session
-
-
-async def _db_session_optional() -> AsyncGenerator[AsyncSession | None, None]:
-    if not is_db_configured():
-        yield None
-        return
-    async for session in get_db_session():
-        yield session
-
-
-DbSession = Annotated[AsyncSession, Depends(_db_session_required)]
-OptionalDbSession = Annotated[AsyncSession | None, Depends(_db_session_optional)]
-
-
-def _http_from_library(exc: SongLibraryError) -> HTTPException:
+def _http_from_catalog(exc: SongCatalogError) -> HTTPException:
     return HTTPException(status_code=exc.status_code, detail=str(exc))
 
 
@@ -150,119 +116,127 @@ def _http_from_song_gateway(exc: SongGatewayError) -> HTTPException:
     return HTTPException(status_code=exc.status_code, detail=detail)
 
 
-def _require_admin_key(
-    settings: Settings = Depends(get_settings),
-    x_api_key: str | None = Header(default=None, alias="X-API-Key"),
-) -> None:
-    if not settings.api_key or x_api_key != settings.api_key:
-        raise HTTPException(status_code=401, detail="유효하지 않은 API 키입니다.")
+def _resolve_venue(request: Request, venue_id: str):
+    try:
+        return request.app.state.venues.get(venue_id)
+    except VenueError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+
+
+async def _load_sections_for_song(
+    request: Request,
+    settings: Settings,
+    *,
+    venue_id: str | None,
+    library_category: str,
+    stem: str,
+) -> list[dict[str, Any]] | None:
+    if not venue_id:
+        return None
+    venue = _resolve_venue(request, venue_id)
+    try:
+        return await fetch_song_sections_from_agent(
+            venue,
+            settings,
+            library_category=library_category,
+            stem=stem,
+        )
+    except WorshipError as exc:
+        raise HTTPException(
+            status_code=exc.status_code,
+            detail={"message": str(exc), "hint": exc.hint},
+        ) from exc
 
 
 @router.get("/api/v1/songs")
 async def list_songs(
-    session: DbSession,
     settings: Settings = Depends(get_settings),
     q: str | None = Query(default=None),
     category: str | None = Query(default=None),
+    library_category: str | None = Query(default=None, alias="libraryCategory"),
     limit: int = Query(default=0, ge=0, le=100),
     offset: int = Query(default=0, ge=0),
 ) -> dict[str, Any]:
-    eff_limit = limit or settings.song_library_default_limit
+    _require_catalog(settings)
+    eff_limit = limit or settings.song_catalog_default_limit
     try:
-        items, total = await search_songs(
-            session, q=q, category=category, limit=eff_limit, offset=offset
+        items, total = search_catalog(
+            settings,
+            q=q,
+            category=category,
+            library_category=library_category,
+            limit=eff_limit,
+            offset=offset,
         )
-    except SongLibraryError as exc:
-        raise _http_from_library(exc) from exc
+    except SongCatalogError as exc:
+        raise _http_from_catalog(exc) from exc
     return {"items": items, "total": total}
 
 
-@router.get("/api/v1/songs/{song_id}")
-async def get_song(session: DbSession, song_id: uuid.UUID) -> dict[str, Any]:
-    detail = await get_song_detail(session, song_id)
+@router.get("/api/v1/songs/{song_id:path}")
+async def get_song(
+    song_id: str,
+    request: Request,
+    settings: Settings = Depends(get_settings),
+    venue_id: str | None = Query(default=None, alias="venueId"),
+) -> dict[str, Any]:
+    _require_catalog(settings)
+    from app.song_catalog import parse_song_id
+
+    try:
+        lib_cat, stem = parse_song_id(song_id)
+    except SongCatalogError as exc:
+        raise _http_from_catalog(exc) from exc
+    sections_list: list[dict[str, Any]] = []
+    if venue_id:
+        loaded = await _load_sections_for_song(
+            request,
+            settings,
+            venue_id=venue_id,
+            library_category=lib_cat,
+            stem=stem,
+        )
+        sections_list = loaded or []
+    detail = get_song_detail(settings, song_id, sections=sections_list)
     if detail is None:
         raise HTTPException(status_code=404, detail="곡을 찾을 수 없습니다.")
+    if venue_id and not sections_list:
+        detail["sectionsHint"] = (
+            "에이전트가 .pro 구간을 반환하지 않았습니다. "
+            "GET /api/v1/venues/{venueId}/library/songs/{songId}/sections 확인."
+        )
     return detail
 
 
-@router.post("/api/v1/songs", status_code=201)
-async def post_song(session: DbSession, body: SongCreateRequest) -> dict[str, Any]:
-    try:
-        new_id = await create_song(
-            session,
-            title=body.title,
-            artist=body.artist,
-            tags=body.tags,
-            category=body.category,
-            sections=[s.model_dump() for s in body.sections],
-        )
-    except SongLibraryError as exc:
-        raise _http_from_library(exc) from exc
-    return {"songId": str(new_id)}
-
-
-@router.patch("/api/v1/songs/{song_id}")
-async def patch_song(
-    session: DbSession, song_id: uuid.UUID, body: SongPatchRequest
-) -> dict[str, Any]:
-    try:
-        ok = await update_song_meta(
-            session,
-            song_id,
-            title=body.title,
-            artist=body.artist,
-            tags=body.tags,
-            category=body.category,
-        )
-    except SongLibraryError as exc:
-        raise _http_from_library(exc) from exc
-    if not ok:
-        raise HTTPException(status_code=404, detail="곡을 찾을 수 없습니다.")
-    return {"songId": str(song_id), "ok": True}
-
-
-@router.delete("/api/v1/songs/{song_id}")
-async def delete_song(session: DbSession, song_id: uuid.UUID) -> dict[str, Any]:
-    ok = await soft_delete_song(session, song_id)
-    if not ok:
-        raise HTTPException(status_code=404, detail="곡을 찾을 수 없습니다.")
-    return {"songId": str(song_id), "deleted": True}
-
-
-@router.put("/api/v1/songs/{song_id}/sections")
-async def put_song_sections(
-    session: DbSession, song_id: uuid.UUID, body: SongSectionsUpdateRequest
-) -> dict[str, Any]:
-    sections = (
-        [s.model_dump() for s in body.sections] if body.sections is not None else None
-    )
-    try:
-        detail = await update_song_sections(
-            session,
-            song_id,
-            sections=sections,
-            title=body.title,
-            category=body.category,
-        )
-    except SongLibraryError as exc:
-        raise _http_from_library(exc) from exc
-    if detail is None:
-        raise HTTPException(status_code=404, detail="곡을 찾을 수 없습니다.")
-    return {"ok": True, **detail}
+@router.post("/api/v1/songs", status_code=410)
+@router.patch("/api/v1/songs/{song_id:path}", status_code=410)
+@router.delete("/api/v1/songs/{song_id:path}", status_code=410)
+@router.put("/api/v1/songs/{song_id:path}/sections", status_code=410)
+async def song_write_gone() -> dict[str, Any]:
+    raise HTTPException(status_code=410, detail=_GONE_DETAIL)
 
 
 @router.post("/api/v1/song/analyze")
 async def api_song_analyze(
     body: SongAnalyzeRequest,
+    request: Request,
     response: Response,
-    session: OptionalDbSession,
     settings: Settings = Depends(get_settings),
 ) -> dict[str, Any]:
     title_for_match = (body.song_title or "").strip()
-    if session is not None and not body.force_reanalyze and title_for_match:
-        matches = await find_by_title_normalized(session, title_for_match)
+    if is_catalog_configured(settings) and not body.force_reanalyze and title_for_match:
+        matches = find_by_title_normalized(settings, title_for_match)
         if len(matches) == 1:
-            return library_hit_response(matches[0])
+            sections = None
+            if body.venue_id:
+                sections = await _load_sections_for_song(
+                    request,
+                    settings,
+                    venue_id=body.venue_id,
+                    library_category=matches[0].library_category,
+                    stem=matches[0].stem,
+                )
+            return library_hit_response(matches[0], sections=sections)
         if len(matches) > 1:
             return library_candidates_response(title_for_match, matches)
 
@@ -291,7 +265,7 @@ async def api_song_analyze(
         set_job_context(
             job_id,
             AnalyzeJobContext(
-                save_to_library=body.save_to_library,
+                save_to_library=False,
                 library_song_id=body.library_song_id,
                 client_ref=body.client_ref,
                 input_kind=input_kind,
@@ -304,61 +278,63 @@ async def api_song_analyze(
 @router.get("/api/v1/song/jobs/{job_id}")
 async def api_song_job(
     job_id: str,
-    session: OptionalDbSession,
     settings: Settings = Depends(get_settings),
 ) -> dict[str, Any]:
-    from app.job_context import get_job_context
-
     try:
         data = await song_get_job(settings, job_id)
     except SongGatewayError as exc:
         raise _http_from_song_gateway(exc) from exc
 
     status = str(data.get("status") or "")
-    ctx = get_job_context(job_id)
-    save_to_library = ctx.save_to_library if ctx else settings.song_library_auto_save
-
-    if status in ("finished", "completed") and save_to_library and session is not None:
-        parsed = data.get("parsed") or {}
-        sections = parsed.get("sections") or []
-        title = (
-            parsed.get("song_title")
-            or parsed.get("songTitle")
-            or data.get("songTitle")
-            or ""
-        )
-        if title and sections:
-            library_song_id = (ctx.library_song_id if ctx else None) or data.get(
-                "librarySongId"
-            )
-            try:
-                song_uuid, action = await upsert_from_analyze(
-                    session,
-                    title=str(title),
-                    sections=sections,
-                    library_song_id=str(library_song_id) if library_song_id else None,
-                    source_job_id=job_id,
-                    input_kind=ctx.input_kind if ctx else None,
-                    client_ref=ctx.client_ref if ctx else None,
-                )
-                data["songId"] = str(song_uuid)
-                data["libraryAction"] = action
-            except SongLibraryError as exc:
-                data["libraryAction"] = "skipped"
-                data["libraryError"] = str(exc)
-        else:
-            data["libraryAction"] = "skipped"
-    elif status in ("finished", "completed"):
+    if status in ("finished", "completed"):
         data["libraryAction"] = "skipped"
-
+        data["libraryReason"] = "data-repo"
+        ctx = get_job_context(job_id)
+        if ctx and ctx.library_song_id:
+            data["librarySongId"] = ctx.library_song_id
     return data
+
+
+@router.get("/api/v1/venues/{venue_id}/library/songs/{song_id:path}/sections")
+async def venue_song_sections(
+    venue_id: str,
+    song_id: str,
+    request: Request,
+    settings: Settings = Depends(get_settings),
+) -> dict[str, Any]:
+    _require_catalog(settings)
+    from app.song_catalog import parse_song_id
+
+    try:
+        library_category, stem = parse_song_id(song_id)
+    except SongCatalogError as exc:
+        raise _http_from_catalog(exc) from exc
+    if get_catalog_song(settings, song_id) is None:
+        raise HTTPException(status_code=404, detail="곡을 찾을 수 없습니다.")
+    venue = _resolve_venue(request, venue_id)
+    try:
+        sections = await fetch_song_sections_from_agent(
+            venue,
+            settings,
+            library_category=library_category,
+            stem=stem,
+        )
+    except WorshipError as exc:
+        detail: dict[str, Any] = {"message": str(exc)}
+        if exc.hint:
+            detail["hint"] = exc.hint
+        raise HTTPException(status_code=exc.status_code, detail=detail) from exc
+    return {
+        "songId": song_id,
+        "libraryCategory": library_category,
+        "sections": sections,
+    }
 
 
 @router.post("/api/v1/worship/build-song")
 async def api_worship_build_song(
     body: WorshipBuildSongRequest,
     request: Request,
-    session: OptionalDbSession,
     settings: Settings = Depends(get_settings),
 ) -> dict[str, Any]:
     venues = request.app.state.venues
@@ -373,22 +349,37 @@ async def api_worship_build_song(
     song_category: str | None = None
 
     if body.song_id:
-        if session is None:
+        _require_catalog(settings)
+        entry = get_song_for_build(settings, body.song_id)
+        if entry is None:
+            raise HTTPException(status_code=404, detail="곡을 찾을 수 없습니다.")
+        song_title = entry.title
+        song_category = entry.category
+        sections = await fetch_song_sections_from_agent(
+            venue,
+            settings,
+            library_category=entry.library_category,
+            stem=entry.stem,
+        )
+        if not sections:
             raise HTTPException(
                 status_code=503,
-                detail="songId 경로는 DATABASE_URL 설정이 필요합니다.",
+                detail={
+                    "message": "에이전트에서 .pro 구간을 읽을 수 없습니다.",
+                    "hint": (
+                        "현장 에이전트에 GET /library/songs/{category}/{title}/sections "
+                        "지원이 필요합니다. 신규 곡은 sections로 build-song 하세요."
+                    ),
+                },
             )
-        try:
-            uid = uuid.UUID(body.song_id)
-        except ValueError as exc:
-            raise HTTPException(status_code=422, detail="songId 형식이 올바르지 않습니다.") from exc
-        loaded = await get_song_for_build(session, uid)
-        if loaded is None:
-            raise HTTPException(status_code=404, detail="곡을 찾을 수 없습니다.")
-        song_title, sections, song_category = loaded
     else:
         sections = [s.model_dump() for s in (body.sections or [])]
         source_song_id = None
+        for sec in sections:
+            try:
+                validate_section(sec)
+            except SongCatalogError as exc:
+                raise _http_from_catalog(exc) from exc
 
     from app.agent_library import AgentLibraryError, resolve_song_library_category
 
@@ -425,33 +416,6 @@ async def api_worship_build_song(
     return result
 
 
-@router.post(
-    "/api/v1/admin/songs/import",
-    dependencies=[Depends(_require_admin_key)],
-)
-async def admin_import_songs(session: DbSession, request: Request) -> dict[str, Any]:
-    raw = await request.body()
-    if not raw.strip():
-        raise HTTPException(status_code=400, detail="import body가 비어 있습니다.")
-    created = updated = errors = 0
-    error_lines: list[str] = []
-    for line_no, line in enumerate(raw.decode("utf-8").splitlines(), start=1):
-        line = line.strip()
-        if not line:
-            continue
-        try:
-            record = json.loads(line)
-            _, action = await import_song_record(session, record)
-            if action == "created":
-                created += 1
-            else:
-                updated += 1
-        except (json.JSONDecodeError, SongLibraryError) as exc:
-            errors += 1
-            error_lines.append(f"line {line_no}: {exc}")
-    return {
-        "created": created,
-        "updated": updated,
-        "errors": errors,
-        "errorLines": error_lines[:20],
-    }
+@router.post("/api/v1/admin/songs/import", status_code=410)
+async def admin_import_songs_gone() -> dict[str, Any]:
+    raise HTTPException(status_code=410, detail=_GONE_DETAIL)

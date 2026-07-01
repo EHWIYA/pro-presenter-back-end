@@ -7,6 +7,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 _API_DIR = Path(__file__).resolve().parent.parent
 _DEFAULT_BIBLE = _API_DIR / "data" / "bible-krv.json"
 _SAMPLE_BIBLE = _API_DIR / "data" / "bible-krv.sample.json"
+_DEFAULT_DATA_REPO = _API_DIR / "data" / "fixtures" / "pro-presenter-data"
 
 
 def resolve_bible_path(path: Path) -> Path:
@@ -15,6 +16,15 @@ def resolve_bible_path(path: Path) -> Path:
         return path
     if _SAMPLE_BIBLE.is_file():
         return _SAMPLE_BIBLE
+    return path
+
+
+def resolve_data_repo_path(path: Path) -> Path:
+    """data repo 없으면 테스트 fixture로 대체 (로컬·CI)."""
+    if (path / "Libraries").is_dir():
+        return path
+    if (_DEFAULT_DATA_REPO / "Libraries").is_dir():
+        return _DEFAULT_DATA_REPO
     return path
 
 
@@ -32,6 +42,10 @@ class Settings(BaseSettings):
     bible_json_path: Path = Field(
         default=_DEFAULT_BIBLE,
         validation_alias="BIBLE_JSON_PATH",
+    )
+    data_repo_path: Path = Field(
+        default=_DEFAULT_DATA_REPO,
+        validation_alias="DATA_REPO_PATH",
     )
     cors_origins: str = Field(default="*", validation_alias="CORS_ORIGINS")
 
@@ -99,11 +113,8 @@ class Settings(BaseSettings):
     send_log_path: Path | None = Field(default=None, validation_alias="SEND_LOG_PATH")
 
     database_url: str | None = Field(default=None, validation_alias="DATABASE_URL")
-    song_library_auto_save: bool = Field(
-        default=True, validation_alias="SONG_LIBRARY_AUTO_SAVE"
-    )
-    song_library_default_limit: int = Field(
-        default=20, validation_alias="SONG_LIBRARY_DEFAULT_LIMIT"
+    song_catalog_default_limit: int = Field(
+        default=20, validation_alias="SONG_CATALOG_DEFAULT_LIMIT"
     )
 
     @field_validator(
@@ -125,6 +136,10 @@ class Settings(BaseSettings):
     @property
     def resolved_bible_path(self) -> Path:
         return resolve_bible_path(self.bible_json_path)
+
+    @property
+    def resolved_data_repo_path(self) -> Path:
+        return resolve_data_repo_path(self.data_repo_path)
 
     @property
     def cors_origin_list(self) -> list[str]:

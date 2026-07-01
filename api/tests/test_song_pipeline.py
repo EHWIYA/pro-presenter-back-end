@@ -14,14 +14,14 @@ def test_build_song_agent_body_snake_case():
         sections=[
             {"type": "verse", "label": "1절", "lines": ["첫 줄", "둘째 줄"]},
         ],
-        source_song_id="550e8400-e29b-41d4-a716-446655440000",
+        source_song_id="찬양/주님의 마음",
     )
     assert body == {
         "song_title": "주님의 마음",
         "library_category": "찬양",
         "group_theme_key": "lyric",
         "build_mode": "append",
-        "source_song_id": "550e8400-e29b-41d4-a716-446655440000",
+        "source_song_id": "찬양/주님의 마음",
         "sections": [
             {"type": "verse", "label": "1절", "lines": ["첫 줄", "둘째 줄"]},
         ],

@@ -79,7 +79,9 @@ Response (agent BuildResponse + sessionId):
 
 ## SongLibrary
 
-`GET/POST/PATCH/DELETE /api/v1/songs…` — camelCase (`songId`, `buildMode` 등). 기존 문서 `docs/api-song-library.md` 참고.
+`GET /api/v1/songs` — pro-presenter-data `Libraries/*.pro` 인덱스. `songId` = `{libraryCategory}/{제목}`.
+
+편집 API 제거 (410). 계약: `docs/handoff/song-catalog.md`, `docs/api-song-library.md`.
 
 ## Bible
 

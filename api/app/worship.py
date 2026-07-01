@@ -107,11 +107,12 @@ def resolve_build_reference(*, reference: str | None, text: str | None) -> str:
     raise WorshipError("reference 또는 text가 필요합니다.", status_code=400)
 
 
-async def _agent_post(
+async def _agent_request(
     venue: Venue,
     settings: Settings,
     path: str,
     *,
+    method: str = "POST",
     json_body: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     base = agent_base_url(venue, settings).rstrip("/")
@@ -119,7 +120,10 @@ async def _agent_post(
     timeout = settings.agent_http_timeout_sec
     try:
         async with httpx.AsyncClient(timeout=timeout) as client:
-            response = await client.post(url, json=json_body)
+            if method.upper() == "GET":
+                response = await client.get(url)
+            else:
+                response = await client.post(url, json=json_body)
     except httpx.ConnectError as exc:
         raise WorshipError(
             "현장 에이전트에 연결할 수 없습니다.",
@@ -167,6 +171,47 @@ def _response_detail(response: httpx.Response) -> str:
             return body["message"]
         return json.dumps(body, ensure_ascii=False)
     return str(body)
+
+
+async def _agent_post(
+    venue: Venue,
+    settings: Settings,
+    path: str,
+    *,
+    json_body: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    return await _agent_request(
+        venue, settings, path, method="POST", json_body=json_body
+    )
+
+
+async def agent_get(
+    venue: Venue,
+    settings: Settings,
+    path: str,
+) -> dict[str, Any]:
+    """에이전트 GET 프록시 (library sections 등)."""
+    return await _agent_request(venue, settings, path, method="GET")
+
+
+async def fetch_song_sections_from_agent(
+    venue: Venue,
+    settings: Settings,
+    *,
+    library_category: str,
+    stem: str,
+) -> list[dict[str, Any]]:
+    from urllib.parse import quote
+
+    path = (
+        f"/library/songs/{quote(library_category, safe='')}"
+        f"/{quote(stem, safe='')}/sections"
+    )
+    data = await agent_get(venue, settings, path)
+    sections = data.get("sections")
+    if not isinstance(sections, list):
+        return []
+    return sections
 
 
 async def worship_build(

@@ -18,7 +18,6 @@ from app.config import Settings, get_settings, resolve_bible_path
 from app.worship import WorshipError, worship_build, worship_trigger
 from app.worship_sessions import create_scripture_session
 from app.database import dispose_db, ensure_schema, get_db_session, init_db, is_db_configured
-from app.song_categories_api import router as song_categories_router
 from app.songs_api import router as songs_router
 from app.verse_service import VerseServiceError, parse_verse, send_verse
 from app.presentations import (
@@ -132,7 +131,6 @@ app.add_middleware(
 )
 
 app.include_router(songs_router)
-app.include_router(song_categories_router)
 app.include_router(venues_v1_router)
 app.include_router(worship_sessions_router)
 app.include_router(internal_router)
@@ -140,14 +138,19 @@ app.include_router(internal_router)
 
 @app.get("/health")
 async def health() -> dict[str, Any]:
+    from app.config import get_settings
+    from app.song_catalog import catalog_status
+
     bible: BibleStore = app.state.bible
+    settings = get_settings()
     return {
         "status": "ok",
         "version": API_VERSION,
         "bible_path": str(bible.path),
         "bible_translation": bible.translation,
         "bible_verses_loaded": bible.verse_count,
-        "song_library_db": is_db_configured(),
+        "database_configured": is_db_configured(),
+        "song_catalog": catalog_status(settings),
     }
 
 

@@ -40,7 +40,9 @@ services:
       - .env.postgres
     environment:
       DATABASE_URL: postgresql+asyncpg://${PP_POSTGRES_USER:-pp_user}:${PP_POSTGRES_PASSWORD}@pro-presenter-postgres:5432/${PP_POSTGRES_DB:-pp_db}
+      DATA_REPO_PATH: /app/data/pro-presenter-data
     volumes:
       - ./venues.json:/live/venues.json:ro
       - ./data/bible-krv.json:/app/data/bible-krv.json:ro
+      - ./data/pro-presenter-data:/app/data/pro-presenter-data:ro
     restart: unless-stopped

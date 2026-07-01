@@ -1,15 +1,18 @@
-"""곡 라이브러리 CRUD · analyze 재사용 · build-song songId."""
+"""곡 카탈로그 API — pro-presenter-data Libraries/*.pro."""
 
 from __future__ import annotations
 
-import uuid
 from unittest.mock import AsyncMock, patch
+from urllib.parse import quote
 
 import pytest
 from fastapi.testclient import TestClient
 
 from app.job_context import clear_job_contexts
 from app.main import app
+
+_SONG_ID_PRAISE = "찬양/주님의 마음"
+_SONG_ID_BUILD = "찬양/빌드곡"
 
 
 @pytest.fixture(autouse=True)
@@ -25,135 +28,46 @@ def client():
         yield c
 
 
-def _create_song(client: TestClient, title: str = "테스트곡") -> str:
-    r = client.post(
-        "/api/v1/songs",
-        json={
-            "title": title,
-            "sections": [{"type": "verse", "label": "1절", "lines": ["a", "b"]}],
-        },
-    )
-    assert r.status_code == 201
-    return r.json()["songId"]
-
-
-def test_song_category_filter_and_default(client: TestClient):
-    r = client.post(
-        "/api/v1/songs",
-        json={
-            "title": "성가곡테스트",
-            "category": "hymn",
-            "sections": [{"type": "verse", "label": "1절", "lines": ["a"]}],
-        },
-    )
-    assert r.status_code == 201
-    hymn_id = r.json()["songId"]
-
-    r = client.post(
-        "/api/v1/songs",
-        json={
-            "title": "기본카테고리",
-            "sections": [{"type": "verse", "label": "1절", "lines": ["b"]}],
-        },
-    )
-    assert r.status_code == 201
-    default_id = r.json()["songId"]
-
-    assert client.get(f"/api/v1/songs/{default_id}").json()["category"] == "praise"
-    assert client.get(f"/api/v1/songs/{hymn_id}").json()["category"] == "hymn"
-
-    listed = client.get("/api/v1/songs", params={"category": "hymn"}).json()
-    ids = {item["songId"] for item in listed["items"]}
-    assert hymn_id in ids
-    assert default_id not in ids
-
-    bad = client.post(
-        "/api/v1/songs",
-        json={
-            "title": "잘못된카테고리",
-            "category": "invalid",
-            "sections": [{"type": "verse", "label": "1", "lines": ["x"]}],
-        },
-    )
-    assert bad.status_code == 422
-
-
-def test_put_sections_partial_and_empty_keeps(client: TestClient):
-    song_id = _create_song(client, "구간유지곡")
-    original = client.get(f"/api/v1/songs/{song_id}").json()["sections"]
-
-    r = client.put(
-        f"/api/v1/songs/{song_id}/sections",
-        json={"category": "special", "title": "특송곡"},
-    )
+def test_catalog_list_and_filter(client: TestClient):
+    r = client.get("/api/v1/songs")
     assert r.status_code == 200
     data = r.json()
-    assert data["ok"] is True
-    assert data["category"] == "special"
-    assert data["title"] == "특송곡"
-    assert data["sections"] == original
-    assert data["sectionCount"] == len(original)
+    assert data["total"] >= 3
+    ids = {item["songId"] for item in data["items"]}
+    assert _SONG_ID_PRAISE in ids
 
-    r2 = client.put(
-        f"/api/v1/songs/{song_id}/sections",
-        json={"sections": []},
-    )
-    assert r2.status_code == 200
-    assert r2.json()["sections"] == original
+    hymn = client.get("/api/v1/songs", params={"category": "hymn"}).json()
+    assert all(item["category"] == "hymn" for item in hymn["items"])
 
-    r3 = client.put(
-        f"/api/v1/songs/{song_id}/sections",
-        json={
-            "sections": [
-                {"type": "chorus", "label": "후렴", "lines": ["할렐루야"]},
-            ],
-        },
-    )
-    assert r3.status_code == 200
-    assert len(r3.json()["sections"]) == 1
-    assert r3.json()["sections"][0]["type"] == "chorus"
+    hymnal = client.get(
+        "/api/v1/songs", params={"libraryCategory": "찬송가"}
+    ).json()
+    assert hymnal["total"] >= 1
+    assert hymnal["items"][0]["libraryCategory"] == "찬송가"
 
 
-def test_songs_crud(client: TestClient):
-    song_id = _create_song(client)
-
-    r = client.get(f"/api/v1/songs/{song_id}")
+def test_catalog_get_detail(client: TestClient):
+    encoded = quote(_SONG_ID_PRAISE, safe="")
+    r = client.get(f"/api/v1/songs/{encoded}")
     assert r.status_code == 200
-    assert r.json()["title"] == "테스트곡"
-    assert len(r.json()["sections"]) == 1
+    body = r.json()
+    assert body["title"] == "주님의 마음"
+    assert body["category"] == "praise"
+    assert body["libraryCategory"] == "찬양"
+    assert body["sections"] == []
+    assert body["source"] == "data-repo"
 
-    r = client.get("/api/v1/songs?q=테스트")
-    assert r.status_code == 200
-    assert r.json()["total"] >= 1
 
-    r = client.patch(
-        f"/api/v1/songs/{song_id}",
-        json={"title": "수정곡", "tags": ["예배"]},
-    )
-    assert r.status_code == 200
-
-    r = client.put(
-        f"/api/v1/songs/{song_id}/sections",
-        json={
-            "sections": [
-                {"type": "chorus", "label": "후렴", "lines": ["할렐루야"]},
-            ],
-        },
-    )
-    assert r.status_code == 200
-
-    r = client.get(f"/api/v1/songs/{song_id}")
-    assert r.json()["sections"][0]["type"] == "chorus"
-
-    r = client.delete(f"/api/v1/songs/{song_id}")
-    assert r.status_code == 200
-    assert client.get(f"/api/v1/songs/{song_id}").status_code == 404
+def test_song_write_endpoints_gone(client: TestClient):
+    encoded = quote(_SONG_ID_PRAISE, safe="")
+    assert client.post("/api/v1/songs", json={"title": "x"}).status_code == 410
+    assert client.patch(f"/api/v1/songs/{encoded}", json={"title": "y"}).status_code == 410
+    assert client.delete(f"/api/v1/songs/{encoded}").status_code == 410
+    assert client.put(f"/api/v1/songs/{encoded}/sections", json={"sections": []}).status_code == 410
 
 
 @patch("app.songs_api.song_analyze", new_callable=AsyncMock)
 def test_analyze_library_hit(mock_analyze, client: TestClient):
-    _create_song(client, "주님의 마음")
-
     r = client.post(
         "/api/v1/song/analyze",
         json={"songTitle": "주님의 마음", "lyricsText": "dummy"},
@@ -161,8 +75,8 @@ def test_analyze_library_hit(mock_analyze, client: TestClient):
     assert r.status_code == 200
     data = r.json()
     assert data["source"] == "library"
+    assert data["songId"] == _SONG_ID_PRAISE
     assert data["category"] == "praise"
-    assert data["schemaVersion"] == "song-sections/v1"
     mock_analyze.assert_not_awaited()
 
 
@@ -173,8 +87,6 @@ def test_analyze_image_only_skips_library_hit(mock_analyze, client: TestClient):
         "status": "queued",
         "pollUrl": "/api/v1/song/jobs/job-new-img",
     }
-    _create_song(client, "주님의 마음")
-
     r = client.post(
         "/api/v1/song/analyze",
         json={
@@ -184,7 +96,6 @@ def test_analyze_image_only_skips_library_hit(mock_analyze, client: TestClient):
     )
     assert r.status_code == 202
     mock_analyze.assert_awaited_once()
-    assert "songTitle" not in mock_analyze.await_args.args[1]
 
 
 @patch("app.songs_api.song_analyze", new_callable=AsyncMock)
@@ -194,8 +105,6 @@ def test_analyze_force_reanalyze(mock_analyze, client: TestClient):
         "status": "queued",
         "pollUrl": "/api/v1/song/jobs/job-force",
     }
-    _create_song(client, "주님의 마음")
-
     r = client.post(
         "/api/v1/song/analyze",
         json={
@@ -209,13 +118,7 @@ def test_analyze_force_reanalyze(mock_analyze, client: TestClient):
 
 
 @patch("app.songs_api.song_get_job", new_callable=AsyncMock)
-def test_job_poll_auto_save(mock_get_job, client: TestClient):
-    from app.job_context import set_job_context, AnalyzeJobContext
-
-    set_job_context(
-        "job-save",
-        AnalyzeJobContext(save_to_library=True, input_kind="lyrics"),
-    )
+def test_job_poll_no_db_save(mock_get_job, client: TestClient):
     mock_get_job.return_value = {
         "id": "job-save",
         "status": "finished",
@@ -227,40 +130,39 @@ def test_job_poll_auto_save(mock_get_job, client: TestClient):
     r = client.get("/api/v1/song/jobs/job-save")
     assert r.status_code == 200
     data = r.json()
-    assert data["libraryAction"] == "created"
-    assert "songId" in data
-
-    song_id = data["songId"]
-    detail = client.get(f"/api/v1/songs/{song_id}").json()
-    assert detail["title"] == "신규곡"
+    assert data["libraryAction"] == "skipped"
+    assert data["libraryReason"] == "data-repo"
+    assert "songId" not in data
 
 
+@patch("app.songs_api.fetch_song_sections_from_agent", new_callable=AsyncMock)
 @patch("app.worship._agent_post", new_callable=AsyncMock)
-def test_build_song_by_song_id(mock_post, client: TestClient):
+def test_build_song_by_song_id(mock_post, mock_sections, client: TestClient):
+    mock_sections.return_value = [
+        {"type": "verse", "label": "1절", "lines": ["a", "b"]},
+    ]
     mock_post.return_value = {"slide_map": [{"index": 1}], "groups": []}
-    song_id = _create_song(client, "빌드곡")
 
     r = client.post(
         "/api/v1/worship/build-song",
-        json={"venueId": "hwiya-pc", "songId": song_id, "buildMode": "replace"},
+        json={"venueId": "hwiya-pc", "songId": _SONG_ID_BUILD, "buildMode": "replace"},
     )
     assert r.status_code == 200
-    assert r.json()["sourceSongId"] == song_id
+    assert r.json()["sourceSongId"] == _SONG_ID_BUILD
+    mock_sections.assert_awaited_once()
     mock_post.assert_awaited_once()
     body = mock_post.await_args.kwargs["json_body"]
-    assert body["source_song_id"] == song_id
+    assert body["source_song_id"] == _SONG_ID_BUILD
     assert body["song_title"] == "빌드곡"
     assert body["library_category"] == "찬양"
-    assert body["group_theme_key"] == "lyric"
 
 
 def test_build_song_xor_validation(client: TestClient):
-    song_id = _create_song(client)
     r = client.post(
         "/api/v1/worship/build-song",
         json={
             "venueId": "hwiya-pc",
-            "songId": song_id,
+            "songId": _SONG_ID_BUILD,
             "songTitle": "x",
             "sections": [{"type": "verse", "label": "1", "lines": ["a"]}],
         },
@@ -268,29 +170,17 @@ def test_build_song_xor_validation(client: TestClient):
     assert r.status_code == 422
 
 
-def test_admin_import(client: TestClient, monkeypatch):
-    monkeypatch.setenv("API_KEY", "test-import-key")
-    from app.config import get_settings
-
-    get_settings.cache_clear()
-
-    ndjson = (
-        '{"title":"임포트곡","sections":[{"type":"verse","label":"1","lines":["a"]}],'
-        '"sourceJobId":"job-import-1"}\n'
-    )
-    r = client.post(
-        "/api/v1/admin/songs/import",
-        content=ndjson,
-        headers={"X-API-Key": "test-import-key"},
-    )
+@patch("app.songs_api.fetch_song_sections_from_agent", new_callable=AsyncMock)
+def test_venue_library_sections_proxy(mock_sections, client: TestClient):
+    mock_sections.return_value = [{"type": "chorus", "label": "후렴", "lines": ["할렐루야"]}]
+    encoded = quote(_SONG_ID_PRAISE, safe="")
+    r = client.get(f"/api/v1/venues/hwiya-pc/library/songs/{encoded}/sections")
     assert r.status_code == 200
-    assert r.json()["created"] == 1
+    assert r.json()["sections"][0]["type"] == "chorus"
 
-    r2 = client.post(
-        "/api/v1/admin/songs/import",
-        content=ndjson,
-        headers={"X-API-Key": "test-import-key"},
-    )
-    assert r2.json()["updated"] == 1
 
-    get_settings.cache_clear()
+def test_health_song_catalog(client: TestClient):
+    body = client.get("/health").json()
+    assert body["song_catalog"]["source"] == "data-repo"
+    assert body["song_catalog"]["configured"] is True
+    assert body["song_catalog"]["count"] >= 3

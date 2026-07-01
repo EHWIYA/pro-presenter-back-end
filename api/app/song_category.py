@@ -4,11 +4,12 @@ from __future__ import annotations
 
 import re
 
-_BUILTIN_CATEGORIES = frozenset({"praise", "hymn", "special"})
-BUILTIN_CATEGORY_IDS = ("praise", "hymn", "special")
+_BUILTIN_CATEGORIES = frozenset({"praise", "hymn", "hymnal", "special"})
+BUILTIN_CATEGORY_IDS = ("praise", "hymn", "hymnal", "special")
 BUILTIN_CATEGORY_LABELS: dict[str, str] = {
     "praise": "찬양",
     "hymn": "성가곡",
+    "hymnal": "찬송가",
     "special": "특송",
 }
 _BUILTIN_LABELS_LOWER = frozenset(v.lower() for v in BUILTIN_CATEGORY_LABELS.values())
@@ -38,7 +39,7 @@ def validate_category(value: str) -> str:
         if slug and _CUSTOM_SLUG_RE.fullmatch(slug):
             return value
     raise SongCategoryError(
-        "category는 praise, hymn, special 또는 custom:<slug> 형식이어야 합니다."
+        "category는 praise, hymn, hymnal, special 또는 custom:<slug> 형식이어야 합니다."
     )
 
 

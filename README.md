@@ -17,13 +17,15 @@ pro-presenter-back-end/
 │   │   ├── worship.py          # 에이전트 build/trigger 프록시
 │   │   ├── presentations.py
 │   │   ├── library_resolve.py
-│   │   ├── songs_api.py          # 곡 DB·analyze·build-song
-│   │   ├── song_library.py
+│   │   ├── songs_api.py          # 곡 catalog·analyze·build-song
+│   │   ├── song_catalog.py
+│   │   ├── data_repo.py
 │   │   ├── song_gateway.py
 │   │   ├── propresenter.py
 │   │   └── verse_service.py    # 레거시 PP 직접 송출
 │   ├── data/
 │   │   ├── bible-krv.sample.json   # 샘플 (repo)
+│   │   ├── fixtures/pro-presenter-data/  # 곡 catalog 샘플 (CI)
 │   │   └── bible-krv.json          # 전체 성경 (git 제외, NAS·로컬)
 │   ├── scripts/build_bible_json.py
 │   └── docker-compose.yml
@@ -57,7 +59,7 @@ curl -s http://127.0.0.1:8003/venues/main/probe
 
 | 메서드 | 경로 | 설명 |
 |--------|------|------|
-| GET | `/health` | 서버 상태·성경 로드 절 수·곡 DB 연결 |
+| GET | `/health` | 서버 상태·성경·곡 catalog (`song_catalog`) |
 | GET | `/api/v1/books` | 지원 성경 66권 목록 |
 | GET | `/venues` | 현장 목록 |
 | GET | `/venues/{id}/probe` | NAS → PP·에이전트 연결 테스트 |
@@ -75,10 +77,9 @@ curl -s http://127.0.0.1:8003/venues/main/probe
 |--------|------|------|
 | POST | `/api/v1/song/analyze` | 악보·가사 → LLM 게이트웨이 프록시 ([`docs/api-song-analyze.md`](docs/api-song-analyze.md)) |
 | GET | `/api/v1/song/jobs/{jobId}` | analyze job 폴링 |
-| GET/POST/PATCH/DELETE | `/api/v1/songs` | 곡 CRUD ([`docs/api-song-library.md`](docs/api-song-library.md)) |
-| PUT | `/api/v1/songs/{id}/sections` | sections 전체 교체 |
+| GET | `/api/v1/songs` | 곡 catalog ([`docs/api-song-library.md`](docs/api-song-library.md)) |
+| GET | `/api/v1/venues/{id}/library/songs/{songId}/sections` | 에이전트 `.pro` 구간 프록시 |
 | POST | `/api/v1/worship/build-song` | 찬양 sections/songId → 에이전트 `build-song` |
-| GET/POST/PATCH/DELETE | `/api/v1/song-categories` | custom category 마스터 |
 
 ### 레거시 (PP 직접 송출)
 

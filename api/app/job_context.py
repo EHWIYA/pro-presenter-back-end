@@ -1,4 +1,4 @@
-"""analyze job → library upsert 컨텍스트 (BFF 인메모리)."""
+"""analyze job 컨텍스트 (BFF 인메모리, DB 저장 없음)."""
 
 from __future__ import annotations
 

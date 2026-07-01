@@ -9,7 +9,7 @@ NAS `pro-api.iwhya.kr` FastAPI BFF. **`.pro` 생성·PP 슬라이드 추가는 �
 | 담당 | 미담당 |
 |------|--------|
 | 성경 JSON 파싱·2줄 분할 (`bible.py`, `split.py`) | Protobuf `.pro` 조립 |
-| Postgres 곡 DB CRUD | PP REST로 슬라이드 생성 |
+| pro-presenter-data 곡 카탈로그 (`song_catalog.py`) | PP REST로 슬라이드 생성 |
 | venue → 에이전트 프록시 (`worship.py`) | 에이전트 NAS 배포 |
 | 악보 analyze → cursor-llm-gateway 프록시 | PWA UI |
 | OpenAPI·DTO 변환 (PWA camelCase ↔ 에이전트 snake_case) | PP Show Directory Git 관리 |
@@ -21,8 +21,8 @@ NAS `pro-api.iwhya.kr` FastAPI BFF. **`.pro` 생성·PP 슬라이드 추가는 �
 | POST | `/api/v1/venues/{id}/build` | `reference` → 에이전트 `POST /build` |
 | POST | `/api/v1/venues/{id}/trigger?index=N` | 에이전트 `POST /trigger?index=N` |
 | POST | `/api/v1/worship/build-song` | 찬양 sections/songId → 에이전트 `build-song` |
-| POST | `/api/v1/song/analyze` | LLM 게이트웨이 프록시 + 곡 DB 선매칭 |
-| GET/POST/PATCH | `/api/v1/songs` | 곡 라이브러리 CRUD |
+| POST | `/api/v1/song/analyze` | LLM 게이트웨이 프록시 + catalog 선매칭 |
+| GET | `/api/v1/songs` | data repo `Libraries/*.pro` 인덱스 |
 
 **호환 경로** (기존 PWA·운영 curl): `/venues/{id}/worship/build`, `/venues/{id}/worship/trigger` — 동일 핸들러.
 
@@ -68,7 +68,7 @@ NAS `pro-api.iwhya.kr` FastAPI BFF. **`.pro` 생성·PP 슬라이드 추가는 �
 |------|------|
 | `/api/v1/venues/{id}/build` · `trigger` | ✅ |
 | worship 호환 경로 | ✅ |
-| worship build-song + 곡 DB | ✅ |
+| worship build-song + catalog songId | ✅ |
 | song analyze → gateway | ✅ |
 | presentations / probe / status | ✅ |
 | pytest 계약 테스트 | ✅ |

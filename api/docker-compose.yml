@@ -28,7 +28,9 @@ services:
       - .env
     environment:
       DATABASE_URL: postgresql+asyncpg://pp_user:pp_dev_password@pro-presenter-postgres:5432/pp_db
+      DATA_REPO_PATH: /app/data/pro-presenter-data
     volumes:
       - ../ops/venues.json:/live/venues.json:ro
       - ./data/bible-krv.sample.json:/app/data/bible-krv.json:ro
+      - ./data/fixtures/pro-presenter-data:/app/data/pro-presenter-data:ro
     restart: unless-stopped

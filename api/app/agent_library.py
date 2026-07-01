@@ -63,6 +63,8 @@ def song_category_to_library_category(category_id: str | None) -> str:
     cat = (category_id or DEFAULT_CATEGORY).strip()
     if cat == "hymn":
         return "성가곡"
+    if cat == "hymnal":
+        return "찬송가"
     if cat == "special":
         return "찬양"
     return "찬양"
